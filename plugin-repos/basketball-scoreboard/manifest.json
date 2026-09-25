@@ -1,0 +1,529 @@
+{
+  "id": "basketball-scoreboard",
+  "name": "Basketball Scoreboard",
+  "version": "1.35.0",
+  "update_interval": 60,
+  "description": "Live, recent, and upcoming basketball games across NBA, NCAA Men's, NCAA Women's, and WNBA with real-time scores, schedules, and March Madness tournament support",
+  "author": "ChuckBuilds",
+  "category": "sports",
+  "tags": [
+    "basketball",
+    "nba",
+    "ncaa",
+    "wnba",
+    "sports",
+    "scoreboard",
+    "live-scores"
+  ],
+  "repo": "https://github.com/ChuckBuilds/ledmatrix-plugins",
+  "branch": "main",
+  "plugin_path": "plugins/basketball-scoreboard",
+  "versions": [
+    {
+      "version": "1.35.0",
+      "released": "2026-09-24",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Stops drawing 13 config control(s) that cannot affect anything, and stops the rankings fetch on leagues that publish no poll. Hidden: 4 FBS/FCS division checkbox group(s) -- ESPN publishes those rosters for college football alone, so the lookup resolves nothing and the filter fails open; 2 other_games_min_quality control(s) on league(s) with no poll, where 'ranked' lets every game through; 2 show_ranking toggle(s) on league(s) with no poll -- worse than inert, because the rank badge replaces the record, so ticking it erased the records show_records was drawing; 4 scroll_delay field(s), whose own description has read 'ignored' for releases; customization.layout.ranking, which has no reader at all -- the rank badge is positioned by layout.record. Each stays declared with \"x-display\": \"hidden\", so a config already carrying it keeps validating and nothing is lost on upgrade; only the form control goes away. Left visible where the league really does publish a poll: ncaam, ncaaw. FETCH: _league_has_rankings gated the quality-filter call site but not the show_ranking ones, so ticking Show Ranking on a pollless league sent two requests an hour to endpoints that cannot answer. The gate moved to the top of _fetch_team_rankings, covering every caller at once. Which leagues have a poll is measured, not assumed: ESPN's /rankings endpoint was probed for every scoreboard league on 2026-09-24. college-football, men's and women's college basketball, college hockey and college lacrosse answer 200 with real poll blocks; every professional league answers 404, and so does college baseball."
+    },
+    {
+      "version": "1.34.3",
+      "released": "2026-09-24",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "The Recent and Upcoming screens for the NBA and WNBA now fetch and cache only the games they can show -- the schedule_lookback_days / schedule_lookahead_days window around today, 14 days back and 7 ahead by default -- instead of the whole season. They never displayed anything outside that window, but the whole season was up to 14MB of JSON for the NBA, and every refresh parsed all of it with the display frozen: measured on a Pi 4, 0.6 to 2.3 seconds of stalled scrolling each time. Nothing on screen changes. The old season cache files are no longer written and the core's cache cleanup removes them. Uses LEDMatrix core's ESPN date-range helper (src/common/espn_dates.py) whenever the core ships one, and its bundled copy only on older cores, so a core fix to how ESPN is fetched reaches this plugin without a plugin release. On current cores that means ESPN responses are parsed with orjson, which is quicker and holds up the scrolling display for less time; the bundled copy is brought back in step with core's as well."
+    },
+    {
+      "version": "1.34.2",
+      "released": "2026-09-20",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Three live-game fixes. New live games are picked up promptly again: a league with nothing on backs its polling off as empty checks mount, and that back-off had no notion of the schedule, so a league idle overnight reached its 15-minute ceiling and a game kicking off inside that window went unnoticed until the window closed -- restarting the display being the one thing that forced an immediate look. The idle wait is now clamped by the next kickoff the league already knows about, taken from scoreboard data it downloads anyway, and held at the live cadence for a quarter of an hour after a scheduled start in case the provider is slow to flip the status. The clamp needs the matching core change; on a core without it the plugin loads and behaves exactly as it did before. Second, live odds are fetched only for the game on screen and the next one in the rotation rather than for every live game in the league on every update: across a full college-football Saturday the old behaviour issued 11,978 odds requests in 13 hours on one rig -- 54% of all its ESPN traffic -- over only ~140 distinct games, because the 60-second live odds cache expired long before a game came round again in a rotation that takes minutes. It also cost up to two seconds of each update per live game. Third, the live poll stops asking for yesterday's scoreboard once yesterday is over. ESPN rejects date ranges, so the two-day lookback was split into one request per day and doubled every live poll; 1,858 requests per rig went to a date holding only finished games. The lookback is kept early in the day and for as long as a tracked game that started yesterday is still running. Fourth, a league that publishes no poll no longer re-fetches the standings endpoint on every update. The hourly rankings cache was gated on whether the last look found anything, and professional leagues return an empty set -- which is falsy, so the cache never satisfied. Measured on an MLB-only rig: 453 standings requests in a day against the 24 the one-hour cache intends. An empty result is now cached like any other."
+    },
+    {
+      "version": "1.34.1",
+      "released": "2026-09-17",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Scoreboards fill in faster on a cold start. Since ESPN began rejecting date-range queries, a season is fetched as one request per month, and a month over ESPN's 500-event cap becomes one request per day -- about 130 requests for four busy months of college baseball, previously issued one at a time (17.7s on a Raspberry Pi 4). Chunks now go out six at a time. This does not change the 'update() timed out' lines some boots log: those are LEDMatrix core's shared 20-second startup budget running out, and the data still arrives on the next update. Measured on a Raspberry Pi 4 against live ESPN, two capped months (63 requests, 3101 events), run order alternated: 6.4-7.5s before, 1.1-2.1s after -- the same requests and the same events, with merged events still in the same order. A truncated month is dropped as soon as it is seen, so peak memory during a cold season fetch rises about 16 MB rather than 43 MB, which matters on 1 GB boards. Synced from LEDMatrix core ChuckBuilds/LEDMatrix#596."
+    },
+    {
+      "version": "1.34.0",
+      "released": "2026-09-16",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Requires LEDMatrix core 3.4.0, the first release that consults get_update_interval() (ChuckBuilds/LEDMatrix#555). Live games poll at the live interval. The plugin implements get_update_interval(): while a game is in progress the core calls update() every live_update_interval seconds instead of at the static interval (the manifest's 60s, or update_interval_seconds where the manifest declares none). With nothing live it returns no opinion, so the idle cadence is unchanged. The Vegas cards and modes not on screen no longer lag behind the score. Settings saved in the web UI apply without a restart. on_config_change rebuilds the league managers, registry, scroll manager and rotation from the new config, so league enables, durations, live priority, display modes and favorites take effect immediately. A save that omits enabled keeps the current state. Live scores are no longer up to 5 minutes stale. The live scoreboard behind the NBA, WNBA, NCAAM and NCAAW live managers was cached for 300s whatever live_update_interval said; it is now 30s, as in soccer, afl and nrl. Switch-only installs no longer run the 125 FPS loop. enable_scrolling was true whenever the scroll manager could be built, so the default all-switch config re-rendered a static scorebug every 8ms. The high-FPS loop is now requested only when a mode is actually set to scroll (_has_any_scroll_mode(), as football/afl/nrl/soccer do). Scroll mode no longer freezes while a fetch runs. The per-frame live refresh ran manager.update() on the render thread, so when a fetch was due the marquee stalled for the whole ESPN request. It is handed to a worker thread (one per manager at a time, at least 5s apart; the manager's own interval still decides whether anything is fetched). Switch mode refreshes its managers off the render thread. The draw-time refresh in _try_manager_display() ran inline, freezing the panel for each due fetch; it now uses the same worker dispatch as afl/nrl/soccer. scroll_settings.scroll_delay is documented as ignored. It never affected scrolling (frames are paced to the panel refresh and scroll_speed sets the speed) but was described as a smoothness knob. The key stays declared so saved configs keep loading."
+    },
+    {
+      "version": "1.33.2",
+      "released": "2026-09-16",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Scores and schedules load again. Since 2026-09-15 ESPN answers scoreboard date-range queries (dates=YYYYMMDD-YYYYMMDD) with 400 Bad Request for every sport, so the NBA and WNBA live, recent and upcoming boards logged '400 Client Error' and showed nothing: today's games, the lookback/lookahead window and the season schedule are all ranges. A rejected range is now fetched as whole months plus the days at either end (a season is 8 to 12 requests); a month that comes back at ESPN's 500-event cap is re-fetched day by day; and after one rejection, ranges go straight to chunks for 6 hours. Scoreboard requests send limit=500 instead of 1000, which ESPN silently truncates (college football returned 25 of 68 games for one Saturday). On a LEDMatrix core whose background service cannot fetch ranges (older than ChuckBuilds/LEDMatrix#591) the plugin fetches the season schedule itself during update() instead of submitting it there."
+    },
+    {
+      "version": "1.33.1",
+      "released": "2026-09-14",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "A scheduled, halftime or postponed game whose ESPN period is null no longer stops live games updating. The live check that drops games which look finished compared the period with >= 4 and raised on None; the exception escaped SportsLive.update() and abandoned that league's whole live refresh, so live games already on the panel kept their last scores, new ones never appeared, and the error repeated on every poll while that game stayed in the feed. A null or non-numeric period now counts as 0 and a null period text as empty; thresholds and clock handling are unchanged. ESPN normally sends an integer period, so this takes a malformed feed."
+    },
+    {
+      "version": "1.33.0",
+      "released": "2026-09-14",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Ports of fixes that had reached only some scoreboards. Postponed, cancelled and suspended games no longer show on Recent as 'Final 0-0'. Full-screen odds no longer print through 'Final', the quarter or 'Next Game' when ESPN sends only an O/U; a home pick'em (spread 0.0) is no longer replaced by the top-level spread. A failed logo shows 'Logo Error' instead of a black panel. Vegas cards are rebuilt when scores change and come from the combined slate, not whatever standalone scroll last rendered. One league failing to initialise no longer stops the other leagues or makes update() raise every tick. A cached no-odds marker no longer triggers a fresh ESPN request. Decoded logo caches are bounded (core #559). Upcoming games respect schedule_lookahead_days, the dwell clock resets on mode re-entry, and games rotated in between updates get odds. The full-screen scorebug has its own switch_show_date/switch_show_time. New advanced settings odds_update_interval and live_odds_update_interval now reach the managers, as do test_mode and a hand-edited other_games_divisions string or null. A config Infinity no longer crashes manager init. The unused bundled logo_downloader.py is removed (sports.py imports the core's)."
+    },
+    {
+      "version": "1.32.0",
+      "released": "2026-09-14",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Adds favorite_rotation_boost (1-5, default 1) beside the other game-limit settings: in switch mode a favorite team's recent or upcoming card gets that many turns per rotation for every one turn other cards get, its extra turns spread evenly around the loop and kept apart whenever enough other cards remain to separate them (the live rotation's smooth weighted round-robin shows a boosted game back to back where it wraps). games_list stays one entry per game, so cycle-duration counts, the scroll strip and the other-games re-cut are unchanged, and the walk resyncs from current_game_index whenever update() or the other-games rotation swaps a list in. The default keeps the old order exactly. Ported across all nine scoreboards per CLAUDE.md non-negotiable #7."
+    },
+    {
+      "released": "2026-09-11",
+      "version": "1.31.0",
+      "changelog": "Style the live, upcoming and recent cards separately",
+      "ledmatrix_min_version": "3.3.0"
+    },
+    {
+      "version": "1.30.1",
+      "released": "2026-09-11",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Live score updates now actually reach the scrolling strip. 1.41.0 added the rebuild-on-change machinery but wired it in the wrong order, which left it inert: the rebuild decision is computed by fingerprinting the live managers' cached games, and the only call that refreshed those managers (_ensure_manager_updated) sat INSIDE the block that decision gates. So once the first strip was built nothing refreshed the data, the fingerprint could never change, and the block never ran again -- the same frozen-until-restart symptom the previous release set out to fix. Switch mode was never affected because _try_manager_display() refreshes unconditionally on every pass; scroll mode now gets the same guarantee, refreshing the live managers before it fingerprints them. _ensure_manager_updated() is itself interval-guarded, so on frames where no refresh is due this costs two getattrs and a comparison. Ported across all eight scoreboards in one change, per CLAUDE.md non-negotiable #7, and pinned by a test that asserts the ordering structurally -- reversing the two lines leaves every behavioural test passing while the panel silently freezes."
+    },
+    {
+      "version": "1.30.0",
+      "released": "2026-09-10",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Live games now reach the scrolling strip mid-cycle. The strip was rendered once per scroll cycle and _scroll_prepared was cleared only when the cycle completed, so a score changed while the marquee was running stayed frozen in the pixels until it finished -- minutes, for a long game list. Restarting the display forced a rebuild, which is the workaround users were finding. The strip is now rebuilt when anything the card draws changes, keeping scroll_position and total_distance_scrolled so the marquee does not snap back to the start and the cycle still completes on schedule. The game clock deliberately does not trigger a rebuild -- it ticks every second and re-rendering every card that often is the whole frame budget on a Pi -- and rebuilds are floored at 5s so a large slate cannot thrash. Ported across all eight scoreboards in one change, per CLAUDE.md non-negotiable #7. Rebuild frequency is self-limiting: the floor between rebuilds scales with what the last one actually cost, so the marquee never spends more than about 5% of its time frozen re-rendering. Measured on a Pi 4, a strip rebuild takes 29ms for one game and 463ms for fifteen; a fixed floor would have been fine for the first and wrong for the second. Also fixes the rebuild-cost bookkeeping being keyed differently from where it is read, which left the duty-cycle cap inert in most plugins."
+    },
+    {
+      "version": "1.29.7",
+      "released": "2026-09-11",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Draw the placeholder-logo abbreviation at PressStart2P 16 rather than 12. That face is crisp only at multiples of 8, and 16 is the nearest crisp size for a 64px logo tile. Panel text was already on-grid via _FONT_PIXEL_GRID and is unchanged."
+    },
+    {
+      "version": "1.29.6",
+      "released": "2026-09-07",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Bitmap fonts load at the size their PIXEL_SIZE header declares instead of failing and silently falling back to another face -- twelve of the thirteen offered sizes were affected (#387). Also drops the glibc-only %-m/%-d from the card date (#414) and the 'broadcast' value from the other_games_min_quality help text (#426)."
+    },
+    {
+      "version": "1.29.5",
+      "released": "2026-09-05",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Validation-sweep fixes; see the PR for the specific defect."
+    },
+    {
+      "released": "2026-09-04",
+      "version": "1.29.4",
+      "changelog": "Render text 1-bit (no anti-aliasing) so glyphs stay crisp on the LED grid",
+      "ledmatrix_min_version": "3.3.0"
+    },
+    {
+      "version": "1.29.3",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Say so when no usable font can be found. The last-ditch fallback silently dropped to PIL's built-in face, which does not match the panel's pixel grid -- so a missing or unreadable font file looked like a rendering bug with nothing in the log to explain it. It now warns, naming the font it failed to load. Nothing renders differently; this only makes an existing failure visible.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage."
+    },
+    {
+      "version": "1.29.2",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Fix every grid-snapped font rendering a pixel narrow. The shared code reads this plugin's config_schema.json to tell a default font size from one the user chose; a default gets snapped to the font's pixel grid, a choice is left alone. It located the schema by inspecting loaded modules, which fails under the real plugin loader -- the loader renames a plugin's modules and removes their original names, so nothing was left to inspect. The lookup returned nothing, every size then looked user-chosen, and the snap was skipped: 4x6-font.ttf drew at 6 instead of 7, which is 3-pixel-wide glyphs instead of 4. On a 256x64 panel the betting odds, team records and the date row were hard to read. The plugin now tells the shared code where it lives instead of leaving it to guess.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage.",
+      "changes": [
+        "Rewrote the README as a complete settings reference covering all 274 settings, with rendered examples of every display mode and the March Madness tournament card."
+      ]
+    },
+    {
+      "version": "1.29.1",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Fix every grid-snapped font rendering a pixel narrow. The shared code reads this plugin's config_schema.json to tell a default font size from one the user chose; a default gets snapped to the font's pixel grid, a choice is left alone. It located the schema by inspecting loaded modules, which fails under the real plugin loader -- the loader renames a plugin's modules and removes their original names, so nothing was left to inspect. The lookup returned nothing, every size then looked user-chosen, and the snap was skipped: 4x6-font.ttf drew at 6 instead of 7, which is 3-pixel-wide glyphs instead of 4. On a 256x64 panel the betting odds, team records and the date row were hard to read. The plugin now tells the shared code where it lives instead of leaving it to guess.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage."
+    },
+    {
+      "version": "1.29.0",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "The sports.py logic every scoreboard shares moves to the core. Forty-five method bodies here were byte-identical to the same forty-five in every other scoreboard -- the selection and rotation engine, the font, colour and date subsystem, and the switch-mode upcoming card -- so they now come from src.common.sports_shared and this plugin inherits them. 1040 lines removed here. A fix to any of that now reaches every scoreboard at once instead of needing eight identical edits. Three deliberately stayed behind: _get_timezone, because it binds a per-plugin timezone module whose contents differ, and the two abstract stubs that define what makes this sport its own. Nothing drawn changes -- the bodies moved rather than being rewritten, and all 176 safety-harness renders across the eight plugins are byte-identical to before. The floor rises to 3.3.0, the release that first ships the shared module.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage."
+    },
+    {
+      "version": "1.28.1",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "Make the odds text settings visible in the web UI. The odds_text block shipped in the schema but not in x-propertyOrder, and the config form iterates that list and nothing else -- so the font, size and colour controls existed and could not be reached. Nothing about what is drawn changes; the settings simply become editable.",
+      "changelog": "The card helpers move to the core. Twenty methods in this plugin's game_renderer.py were byte-identical to the same twenty in every other scoreboard: the colour pickers, the scroll_card settings lookup, the date and time formatting, the favourite-team rules and the font-size grid snapping. They now live in src.common.sports_card and this plugin delegates to them, so a fix to any of that reaches every scoreboard at once instead of needing eight identical edits, and a new scoreboard gets them by importing one module. 245 lines removed here. Nothing about what is drawn changes: the bodies were moved rather than rewritten, and all 176 safety-harness renders across the eight plugins are byte-identical to before. The floor rises to 3.3.0, the release that first ships the helper."
+    },
+    {
+      "version": "1.28.0",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.3.0",
+      "notes": "The card helpers move to the core. Twenty methods in this plugin's game_renderer.py were byte-identical to the same twenty in every other scoreboard: the colour pickers, the scroll_card settings lookup, the date and time formatting, the favourite-team rules and the font-size grid snapping. They now live in src.common.sports_card and this plugin delegates to them, so a fix to any of that reaches every scoreboard at once instead of needing eight identical edits, and a new scoreboard gets them by importing one module. 245 lines removed here. Nothing about what is drawn changes: the bodies were moved rather than rewritten, and all 176 safety-harness renders across the eight plugins are byte-identical to before. The floor rises to 3.3.0, the release that first ships the helper. The scroll-card geometry follows it. Nine more methods -- the centre-gap width, the logo slot and its cache key, the layout offsets and the whole upcoming-card date and time layout -- were the same in every scoreboard, and now come from src.common.sports_game_renderer.SportsGameRendererMixin; only _SCORE_PROBE stays behind, since this league reaches three digits a side. A further 198 lines removed. Again nothing drawn changes: the bodies moved rather than being rewritten, and the renders stay byte-identical.",
+      "changelog": "The card helpers move to the core. Twenty methods in this plugin's game_renderer.py were byte-identical to the same twenty in every other scoreboard: the colour pickers, the scroll_card settings lookup, the date and time formatting, the favourite-team rules and the font-size grid snapping. They now live in src.common.sports_card and this plugin delegates to them, so a fix to any of that reaches every scoreboard at once instead of needing eight identical edits, and a new scoreboard gets them by importing one module. 245 lines removed here. Nothing about what is drawn changes: the bodies were moved rather than rewritten, and all 176 safety-harness renders across the eight plugins are byte-identical to before. The floor rises to 3.3.0, the release that first ships the helper."
+    },
+    {
+      "version": "1.27.0",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.2.0",
+      "notes": "Odds get their own font, size and colour. The betting line and over/under borrowed the detail_text settings, so making them bigger on a large panel also enlarged the team records and the date row, and their green was hard-coded in the drawing call where no setting could reach it. A new customization.odds_text block controls the odds alone, in both the full-screen scorebug and the scroll/Vegas card. Nothing changes unless you set it: the defaults are exactly what was rendered before -- the same 4x6 font at the same size, and the same green -- and a config saved before this setting existed falls back to detail_text, so all 176 safety-harness renders are byte-identical to the previous version. Sizes still snap to the font's pixel grid to stay crisp, so 4x6-font.ttf gives 7, 14 or 21 and press_start gives 8 or 16.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage."
+    },
+    {
+      "version": "1.26.1",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.2.0",
+      "notes": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage.",
+      "changelog": "Retry a team logo whose previous download failed, instead of showing a grey box forever. A failed download is cached by the core as a placeholder wearing the real logo's filename; the logo loader scans filename variations, found that stub, and so never called the downloader again. The loader now skips a placeholder that is stale enough to be worth retrying and lets the download run, which also picks up stubs already on disk. The retry is rate-limited by the core (6h), so this does not trade a permanent grey box for a request every frame. Needs a core carrying src.logo_downloader.is_placeholder_logo; against an older core the check is skipped and behaviour is unchanged. Ported byte-identically across every sports lineage."
+    },
+    {
+      "version": "1.26.0",
+      "released": "2026-09-02",
+      "ledmatrix_min_version": "3.2.0",
+      "notes": "The bundled scroll fallback is gone, and the plugin now requires LEDMatrix 3.2.0. scroll_display.py carried a guarded import of the core's src.common.sports_scroll with a frozen pre-adoption copy, scroll_display_legacy.py, behind it, so it kept working on a core that predated the module (B5). The copy is deleted and the import is now plain -- keeping the try/except with nothing behind it would only mislabel the failure, naming the missing scroll_display_legacy instead of the core module actually absent, which is the single log line a user gets before the scoreboard stops appearing. The floor rises to 3.2.0, the release that ships the module, and the store refuses to install or update this version onto anything older. Nothing about what is drawn changes: the frozen copy was compared method by method against the core before deleting it and carried no orchestration logic the core lacks, and every safety-harness render is unchanged.",
+      "changelog": "The bundled scroll fallback is gone, and the plugin now requires LEDMatrix 3.2.0. scroll_display.py carried a guarded import of the core's src.common.sports_scroll with a frozen pre-adoption copy, scroll_display_legacy.py, behind it, so it kept working on a core that predated the module (B5). The copy is deleted and the import is now plain -- keeping the try/except with nothing behind it would only mislabel the failure, naming the missing scroll_display_legacy instead of the core module actually absent, which is the single log line a user gets before the scoreboard stops appearing. The floor rises to 3.2.0, the release that ships the module, and the store refuses to install or update this version onto anything older. Nothing about what is drawn changes: the frozen copy was compared method by method against the core before deleting it and carried no orchestration logic the core lacks, and every safety-harness render is unchanged."
+    },
+    {
+      "version": "1.25.0",
+      "released": "2026-08-31",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The other slots now fill with games worth watching, and the settings that govern them take effect. football-scoreboard has had this since 2.29.0; these eight lineages had the settings in their schema and nothing reading them, so a board could ask for ranked games only and still get the next N kickoffs. The non-favourite pool is now ordered by the matchup rather than the clock, filtered by quality and division, and re-cut on the display path every other_rotation_interval_seconds so a long pool rotates instead of showing its first N forever. Favourites keep their slots through every cut, one game per team, and the filters fail open as a set: if a filter matches nothing the mode shows the unfiltered list rather than going blank. Also retires the 'broadcast' tier of other_games_min_quality, matching football-scoreboard 3.0.0. Measured there against a real Week 1 and Week 2 college slate it passed 174 of 175 games -- ESPN publishes a broadcaster for nearly everything now, ESPN+ included -- so it read as a quality bar and behaved as 'any'. A board still holding the old value now migrates to 'ranked' with a warning rather than silently getting no filtering, and the option is gone from the settings UI.",
+      "changelog": "The other slots now fill with games worth watching, and the settings that govern them take effect. football-scoreboard has had this since 2.29.0; these eight lineages had the settings in their schema and nothing reading them, so a board could ask for ranked games only and still get the next N kickoffs. The non-favourite pool is now ordered by the matchup rather than the clock, filtered by quality and division, and re-cut on the display path every other_rotation_interval_seconds so a long pool rotates instead of showing its first N forever. Favourites keep their slots through every cut, one game per team, and the filters fail open as a set: if a filter matches nothing the mode shows the unfiltered list rather than going blank. Also retires the 'broadcast' tier of other_games_min_quality, matching football-scoreboard 3.0.0. Measured there against a real Week 1 and Week 2 college slate it passed 174 of 175 games -- ESPN publishes a broadcaster for nearly everything now, ESPN+ included -- so it read as a quality bar and behaved as 'any'. A board still holding the old value now migrates to 'ranked' with a warning rather than silently getting no filtering, and the option is gone from the settings UI."
+    },
+    {
+      "version": "1.24.3",
+      "released": "2026-09-01",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Recent games now get their odds. SportsUpcoming fetches odds for the games that survive selection and SportsLive fetches them per included game -- the Recent screen never fetched them at all, so its 'odds if available' renderer never had anything attached and every final rendered bare. update() now fetches odds for the selected finals, exactly as Upcoming does; ESPN keeps a completed game's closing line on the same endpoint, so a final is as answerable as an upcoming game. Same fix as football-scoreboard 2.29.3, which only surfaced there because football's display-path rotation attached odds to rotated-in finals by accident -- this plugin has no such rotation, so its finals were bare in every configuration.",
+      "changelog": "Recent games now get their odds. SportsUpcoming fetches odds for the games that survive selection and SportsLive fetches them per included game -- the Recent screen never fetched them at all, so its 'odds if available' renderer never had anything attached and every final rendered bare. update() now fetches odds for the selected finals, exactly as Upcoming does; ESPN keeps a completed game's closing line on the same endpoint, so a final is as answerable as an upcoming game. Same fix as football-scoreboard 2.29.3, which only surfaced there because football's display-path rotation attached odds to rotated-in finals by accident -- this plugin has no such rotation, so its finals were bare in every configuration."
+    },
+    {
+      "version": "1.24.2",
+      "released": "2026-08-31",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The AP_TOP_n favourite groups now resolve from the top division's poll. ESPN answers the college football rankings endpoint with four blocks -- AP Top 25, the AFCA Coaches Poll, the FCS Coaches Poll and the AFCA Division II Poll -- and the resolver took whichever came first. AP leads today, so it was FBS by luck rather than by choice: nothing in the payload promises that order and ESPN changes it, adding the CFP rankings in November. With a lower-division poll leading, AP_TOP_25 resolved to 25 FCS schools and installed them as the user's FAVOURITE teams -- and favourites are never filtered by quality or division, so every one of those games would have reached the panel. ESPN's own order is kept among top-division polls; only the divisions below FBS are stepped over. The rank badge also chooses its ranking block rather than taking ESPN's first, which for the college leagues that publish tournament seedings is a bracket seed rather than a poll position; college basketball fronts the AP Top 25 today, so this is hardening here. The never-populated upcoming_games/recent_games attributes are removed: nothing filled them and nothing read them, and their presence is what made a duration calculation reading them look correct. No behaviour change here. The shared favourite-check advisory is brought back in step with football-scoreboard 2.29.4, which fixed it there without porting: the \"nothing on until\" line pooled event dates with the league calendar's week and phase boundaries and took the earliest, and those boundaries open days before the first game, so a boundary was reported as a game date. Events now win; the calendar only speaks for a payload with no events at all. The copies are byte-identical again, which hockey-scoreboard's test_favorite_check.py enforces across all seven.",
+      "changelog": "The AP_TOP_n favourite groups now resolve from the top division's poll. ESPN answers the college football rankings endpoint with four blocks -- AP Top 25, the AFCA Coaches Poll, the FCS Coaches Poll and the AFCA Division II Poll -- and the resolver took whichever came first. AP leads today, so it was FBS by luck rather than by choice: nothing in the payload promises that order and ESPN changes it, adding the CFP rankings in November. With a lower-division poll leading, AP_TOP_25 resolved to 25 FCS schools and installed them as the user's FAVOURITE teams -- and favourites are never filtered by quality or division, so every one of those games would have reached the panel. ESPN's own order is kept among top-division polls; only the divisions below FBS are stepped over. The rank badge also chooses its ranking block rather than taking ESPN's first, which for the college leagues that publish tournament seedings is a bracket seed rather than a poll position; college basketball fronts the AP Top 25 today, so this is hardening here. The never-populated upcoming_games/recent_games attributes are removed: nothing filled them and nothing read them, and their presence is what made a duration calculation reading them look correct. No behaviour change here. The shared favourite-check advisory is brought back in step with football-scoreboard 2.29.4, which fixed it there without porting: the \"nothing on until\" line pooled event dates with the league calendar's week and phase boundaries and took the earliest, and those boundaries open days before the first game, so a boundary was reported as a game date. Events now win; the calendar only speaks for a payload with no events at all. The copies are byte-identical again, which hockey-scoreboard's test_favorite_check.py enforces across all seven."
+    },
+    {
+      "version": "1.24.1",
+      "released": "2026-08-30",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Recent games come back when favourite teams are set. SportsRecent.update() calls self._favorites_first(...), but that helper -- and _other_games_window and _is_favorite_game with it -- was defined on SportsUpcoming, a sibling class rather than an ancestor, so the call raised AttributeError. update() catches it, logs \"Error updating recent games\" and carries on with an empty list, so the recent screen simply showed nothing. It only bites when favourite teams are configured without show_favorite_teams_only, which is the ordinary way to use the setting. football-scoreboard already had all three helpers on SportsCore and was unaffected; this brings the rest into line with it. No other behaviour changes: every safety-harness render for the seven plugins whose fixtures set no favourites is byte-identical.",
+      "changelog": "Recent games come back when favourite teams are set. SportsRecent.update() calls self._favorites_first(...), but that helper -- and _other_games_window and _is_favorite_game with it -- was defined on SportsUpcoming, a sibling class rather than an ancestor, so the call raised AttributeError. update() catches it, logs \"Error updating recent games\" and carries on with an empty list, so the recent screen simply showed nothing. It only bites when favourite teams are configured without show_favorite_teams_only, which is the ordinary way to use the setting. football-scoreboard already had all three helpers on SportsCore and was unaffected; this brings the rest into line with it. No other behaviour changes: every safety-harness render for the seven plugins whose fixtures set no favourites is byte-identical."
+    },
+    {
+      "version": "1.24.0",
+      "released": "2026-08-29",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The score is now the headline it was always meant to be. It was the only element on the card not sized from the panel, and it was not even bigger than its neighbours: PressStart2P renders crisply on an 8px grid, so the 10px default snapped to 8 -- the same 8 the clock above it and the game date below it are drawn at. It is now sized from display_height, snapped to its face's pixel grid and capped at twice its design size, with the clock/date face held a grid step below it. Score and date positions scale with their faces so a grown one is not clipped off the card. Where the grown score would swamp the panel the layout now reaches for a narrower FACE rather than crowding out the logos, which is what football-scoreboard has always done and the single reason its logos read larger than every other scoreboard's at the same size. Measured on a 128x64 board: 4x6-font at 14px reserves 28px and leaves 52x52 logos, where PressStart2P at 16px reserved 60px and left 36x36 -- two small badges adrift in a mostly black panel. The two faces are nothing like the same shape: PressStart2P is square, 4x6-font is nearly as tall and about half as wide, so the score keeps the dimension that carries legibility and gives back the one the logos need. Logos are sized against the space the score actually needs, and only where the score grew -- a panel whose score did not move keeps exactly the logos it had. The upcoming screen is untouched at every size: it draws no score, so none of this applies to it -- its date and time keep the face and size they always had. Measured on the live and recent screens: 64x32, 128x32 and 256x32 render byte-identically to the previous release, and every taller panel gains a larger score with logos the score is no longer drawn across. Basketball runs to three digits a side, so the reserve and the width budget are measured against \"000-000\" rather than \"00-00\": measuring a 104-112 against five characters reserved two characters less than the score needs and drew it onto the logos either side.",
+      "changelog": "The score is now the headline it was always meant to be. It was the only element on the card not sized from the panel, and it was not even bigger than its neighbours: PressStart2P renders crisply on an 8px grid, so the 10px default snapped to 8 -- the same 8 the clock above it and the game date below it are drawn at. It is now sized from display_height, snapped to its face's pixel grid and capped at twice its design size, with the clock/date face held a grid step below it. Score and date positions scale with their faces so a grown one is not clipped off the card. Where the grown score would swamp the panel the layout now reaches for a narrower FACE rather than crowding out the logos, which is what football-scoreboard has always done and the single reason its logos read larger than every other scoreboard's at the same size. Measured on a 128x64 board: 4x6-font at 14px reserves 28px and leaves 52x52 logos, where PressStart2P at 16px reserved 60px and left 36x36 -- two small badges adrift in a mostly black panel. The two faces are nothing like the same shape: PressStart2P is square, 4x6-font is nearly as tall and about half as wide, so the score keeps the dimension that carries legibility and gives back the one the logos need. Logos are sized against the space the score actually needs, and only where the score grew -- a panel whose score did not move keeps exactly the logos it had. The upcoming screen is untouched at every size: it draws no score, so none of this applies to it -- its date and time keep the face and size they always had. Measured on the live and recent screens: 64x32, 128x32 and 256x32 render byte-identically to the previous release, and every taller panel gains a larger score with logos the score is no longer drawn across. Basketball runs to three digits a side, so the reserve and the width budget are measured against \"000-000\" rather than \"00-00\": measuring a 104-112 against five characters reserved two characters less than the score needs and drew it onto the logos either side."
+    },
+    {
+      "version": "1.23.0",
+      "released": "2026-08-29",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The text colour pickers in Customization now actually colour the text. score_text, period_text, team_name, status_text, detail_text and rank_text have each offered a colour in the web UI for as long as they have had a font, and setting one changed only which font was loaded -- every string was drawn white. The colour now follows the face it belongs to, on the full-screen scoreboard and on the scroll and Vegas cards alike. Every default is white, so a display nobody has recoloured looks exactly as it did.",
+      "changelog": "The text colour pickers in Customization now actually colour the text. score_text, period_text, team_name, status_text, detail_text and rank_text have each offered a colour in the web UI for as long as they have had a font, and setting one changed only which font was loaded -- every string was drawn white. The colour now follows the face it belongs to, on the full-screen scoreboard and on the scroll and Vegas cards alike. Every default is white, so a display nobody has recoloured looks exactly as it did."
+    },
+    {
+      "version": "1.22.1",
+      "released": "2026-08-29",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fix a crash when the date format is set to \"weekday\". game_renderer.py used datetime, timezone and ZoneInfo without importing any of them, so choosing that option -- one of the documented values of scroll_card.date_format -- raised NameError. Neither helper's except clause catches NameError (_weekday_for catches ValueError/TypeError, _card_tzinfo catches KeyError/ValueError/TypeError/OSError), so it propagated out of the render rather than falling back to the plain date. The imports now match hockey-scoreboard, the one copy that always had them and rendered the option correctly. Nothing else changes: the default \"abbrev\" format, which is what the render harness and the golden images exercise, was never affected, which is how this went unnoticed."
+    },
+    {
+      "version": "1.22.0",
+      "released": "2026-08-29",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The matchup separator and the date and time formats now reach the full-screen scoreboard, not just the scroll and Vegas cards. A new \"Middle of a Full-Screen Upcoming Scoreboard\" setting (switch_upcoming_center) picks what sits between the two logos before a game starts: the stacked date and time as before, the VS / @ / at separator, nothing, or whatever the scroll and Vegas cards are set to. It defaults to the stacked date and time, so the scoreboard looks exactly as it did until you change it.",
+      "changelog": "The matchup separator and the date and time formats now reach the full-screen scoreboard, not just the scroll and Vegas cards. A new \"Middle of a Full-Screen Upcoming Scoreboard\" setting (switch_upcoming_center) picks what sits between the two logos before a game starts: the stacked date and time as before, the VS / @ / at separator, nothing, or whatever the scroll and Vegas cards are set to. It defaults to the stacked date and time, so the scoreboard looks exactly as it did until you change it."
+    },
+    {
+      "version": "1.21.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Favorite teams now appear in upcoming and recent even when 'show favorite teams only' is off. New other_upcoming_games_to_show / other_recent_games_to_show control how many other games fill the rest, and other_rotation_interval_seconds advances that slice over time so the board works through the schedule instead of repeating the same handful.",
+      "changelog": "Favorite teams now appear in upcoming and recent even when 'show favorite teams only' is off. New other_upcoming_games_to_show / other_recent_games_to_show control how many other games fill the rest, and other_rotation_interval_seconds advances that slice over time so the board works through the schedule instead of repeating the same handful."
+    },
+    {
+      "version": "1.20.1",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "Corrects a log line that claimed no favourite teams were configured when they were: the schedule view is used whenever show_favorite_teams_only is off, not only when favourites are absent. It now names the teams and the setting to change."
+    },
+    {
+      "version": "1.20.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "Font family aliases are resolved to filenames before the font is loaded, so a configured alias no longer falls back to the wrong face at a size that is not crisp for it. Card width and centre gap are also settled together rather than the gap being measured at a fixed probe width. The centre strip is now sized for a three-digit score, which this sport reaches."
+    },
+    {
+      "version": "1.19.1",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "Review follow-ups: the detail text falls back to the 4x6 face its schema declares instead of PressStart2P, and the logo-slot docstring no longer claims a cap that was removed."
+    },
+    {
+      "version": "1.19.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "A game_card_width equal to the schema default is now treated as unchosen, so the computed card width applies. Without this the card stayed pinned at 128px on any config saved through the web UI, which left the logos SMALLER than before, not merely unchanged."
+    },
+    {
+      "version": "1.18.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "Pixel fonts now render on their grids instead of anti-aliased: PressStart2P snaps to multiples of 8 and 4x6-font to multiples of 7, on both the scroll/Vegas cards and the regular display. A font size that merely echoes the schema default is treated as unchosen and snapped; a size you actually chose is left alone."
+    },
+    {
+      "version": "1.17.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct.",
+      "changelog": "Scroll/Vegas cards: the centre gap is now measured from the score actually loaded, and the card is sized to fit two full-height logos plus that gap, so the score no longer renders on top of the team logos and the logos are no longer frozen at 46px on tall panels."
+    },
+    {
+      "version": "1.16.7",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Fetch the WNBA postseason. The ESPN date window was built as {year}0501-{year}0930 on the basis that the season runs May to September; the regular season does, but the playoffs and Finals run into October (2024 ended 20 October, 2025 mid-October). Both fetch calls pass that window as dates= with no date-less fallback, so no postseason game was ever retrieved and the scoreboard went blank exactly when the games matter most. The window now closes 1 November. NBA and both NCAA leagues were checked and are correct."
+    },
+    {
+      "version": "1.16.2",
+      "released": "2026-08-19",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Request odds only for the games that will be shown. The upcoming-games loop fetched odds for every game it collected and the caller then kept upcoming_games_to_show of them (10 by default). The loop's own comment claimed odds were fetched only for games that would be displayed, but the filter it referred to applies only when show_favorite_teams_only is set AND favourite teams are configured, and neither is the default -- so in the usual case nothing narrowed it. A live rig running college football logged 946 upcoming games in one cycle and displayed 1 of them, having made 946 separate ESPN odds requests to do it, from a Pi that is also driving the panel. The odds cache only absorbs repeats of the same event, so a wide schedule never benefited from it. Nothing about what reaches the screen changes."
+    },
+    {
+      "version": "1.16.1",
+      "released": "2026-08-19",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Make scroll_card, background_service and the two idle-poll intervals reachable in the web UI. The config form renders only the properties named in x-propertyOrder, so a setting the schema declares but that list omits was never drawn -- no field, no error, no hint it existed, and the only way to set it was to hand-edit config.json on the device. The values already validated on save and the plugin already read them; only the form was missing them."
+    },
+    {
+      "version": "1.16.0",
+      "released": "2026-08-19",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Turn the favorite-teams field into a checkbox picker. It was a free-text array with only a description telling you to use 2-3 letter codes and nothing validating what you typed, so a wrong or stale code saved cleanly and then matched nothing -- an empty screen with no error anywhere. The roster is now an enum with display names, rendered as the same checkbox-group the odds ticker already uses, and scripts/check_team_pickers.py keeps it in step with ESPN. Existing configurations are unaffected: the codes were already ESPN's, so anything valid today stays valid. Applies to NBA and WNBA; the college leagues keep the text field, since a checkbox grid of several hundred teams is worse than typing. Codes ESPN no longer uses cannot be offered by a picker, so if one is already saved the config will not save until it is replaced: GSW (Warriors), NOP (Pelicans), NYK (Knicks), PHO (Suns), SAS (Spurs), UTA (Jazz), WAS (Wizards). The web UI reports which value it rejected."
+    },
+    {
+      "version": "1.15.0",
+      "released": "2026-08-19",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Make the schedule fetch window configurable. How far back and forward games are fetched was hard-coded at 14 days back and 7 forward. Days is the wrong unit for a league that plays weekly -- a whole matchweek can fall just past a short horizon and never reach the board -- so both are now advanced settings, bounded 1-60 days, with a stray or non-numeric value falling back to the default rather than raising. Defaults keep today's behaviour.",
+      "changes": "Back off the live-game poll while a league has nothing on, and let both the idle interval and its ceiling be configured. Saves API calls out of season and between games without delaying an in-progress game, which still resets the interval on the first fetch that finds one."
+    },
+    {
+      "version": "1.14.1",
+      "released": "2026-08-18",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Make the schedule fetch window configurable. How far back and forward games are fetched was hard-coded at 14 days back and 7 forward. Days is the wrong unit for a league that plays weekly -- a whole matchweek can fall just past a short horizon and never reach the board -- so both are now advanced settings, bounded 1-60 days, with a stray or non-numeric value falling back to the default rather than raising. Defaults keep today's behaviour.",
+      "changes": "Make the schedule-window settings actually take effect: they were dropped by each plugin's config adapter, so every user stayed on the defaults. The authoritative fetch now uses the configured window too, the Recent cutoff follows it instead of a fixed 21 days, and the fields render in the web UI for every plugin."
+    },
+    {
+      "version": "1.14.0",
+      "released": "2026-08-15",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Make the schedule fetch window configurable. How far back and forward games are fetched was hard-coded at 14 days back and 7 forward. Days is the wrong unit for a league that plays weekly -- a whole matchweek can fall just past a short horizon and never reach the board -- so both are now advanced settings, bounded 1-60 days, with a stray or non-numeric value falling back to the default rather than raising. Defaults keep today's behaviour."
+    },
+    {
+      "version": "1.13.3",
+      "released": "2026-08-14",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Load the bundled fonts without depending on the process working directory. Every font this scoreboard draws with ships in the LEDMatrix core and was named relative to the cwd, which resolves only under the packaged systemd unit, whose WorkingDirectory is the install root. Anywhere else -- the plugin safety harness, a manual run from a home directory, a unit file written without WorkingDirectory -- the load raised, the caller's fallback caught it, and the scoreboard rendered in PIL's default face at the wrong metrics instead of the pixel font its layout was built around. Every direct load now goes through a resolver that tries the path as given, then the core install root, then returns the original so existing fallbacks are untouched; a configured absolute path still passes through unchanged."
+    },
+    {
+      "version": "1.13.2",
+      "released": "2026-08-13",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Honour the configured live-game dwell instead of the data refresh rate. The rotation lived in update(), which runs on live_update_interval -- 30s by default -- so a game could only be advanced at that cadence and every configured duration was quantised to it. Measured on a live rig with four NFL games: live_game_duration=45 and non_favorite_live_game_duration=10 both produced a flat 30s rotation, and only changing live_update_interval changed anything. It is driven from display() now, so a dwell shorter than the refresh interval is reachable and a longer one is not cut short. This plugin also had no guard against rotating before the first game had been shown; harmless at one check per 30s, a visible flicker at one per frame, so it gained the guard the others already had."
+    },
+    {
+      "version": "1.13.1",
+      "released": "2026-08-12",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Match favorites against this plugin's real live-data shape. The first cut looked for an attribute holding live_games beside favorite_teams, which is true of five scoreboards and quietly false for four: cricket keeps live_matches, nrl and afl hold their managers in a dict rather than as attributes, and ufc has favorite_fighters and fighter names. Those four reported every live game as non-favorite. A celebrating game is searched too, since the live manager snapshots it out of live_games while the celebration is on screen."
+    },
+    {
+      "version": "1.13.0",
+      "released": "2026-08-12",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Ask for more turns in the Vegas ticker while a game is live, and more again when a favorite team is playing. Only takes effect with the core's display.vegas_scroll.live_in_ticker set, which keeps the marquee running instead of handing the display to a full-screen scoreboard. The core grants a live plugin live_weight on its own; this reports the favorite case, which the core cannot see -- it knows a game is live but not whose."
+    },
+    {
+      "version": "1.12.1",
+      "released": "2026-08-12",
+      "notes": "Fix blurry score digits on the LED matrix: the outline-drawing helper used PIL's default anti-aliased text rendering, which blends pixel-font (PressStart2P) glyph edges into dim partial-lit pixels on a 1:1 matrix, muddying numbers (a \"6\" could read as a \"G\"). Text now draws in 1-bit font mode so every glyph -- scores, clocks, team names, status text -- renders crisp with no anti-aliasing.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.12.0",
+      "released": "2026-08-06",
+      "notes": "Scroll and Vegas cards: never show 0-0 before a game starts, add a centre gap so the score or VS is not drawn on top of the team logos, and write upcoming dates as \"Sep 19\". A new scroll_card config block sets what fills the middle of an upcoming card (VS, or the date and time stacked), the date format (abbrev/numeric) and the centre gap in pixels. gap_between_games is now honoured in Vegas mode, which stitches its own items and previously ignored it, and its code default moves from 24 to 48 to match the config schema. The date is positioned from its measured height rather than a fixed offset, which stops \"Sep 19\" running past the bottom of the card in the plugins whose detail font is 10px. These settings only affect the cards built for scroll and Vegas modes; the full-screen scoreboard is drawn by a separate code path and is unchanged. Adds a fuller set of scroll_card settings: vs_text (VS, @, at, ...), date_format now covering abbrev/numeric/day_first/numeric_day_first/weekday, time_format 12h or 24h, show_date, show_time, swap_date_time, upcoming_center gains a 'none' option, and center_gap_ratio/min/max for the automatic gap. Each customization text element gains text_color, and the customization.layout X/Y offsets are now honoured by the scroll/Vegas card -- the schema advertised them but only the full-screen scoreboard read them before. The away team is drawn on the left and the home team on the right, so \"at\" and \"@\" read correctly as \"away at home\".",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.11.0",
+      "released": "2026-08-05",
+      "notes": "Add customization.favorite_result_colors: an optional setting that colors a recent game's final score green when your favorite team won and red when it lost. Aimed at scroll and Vegas modes, where the same matchup can go past several times and the logos alone do not say who won. Off by default; games without exactly one favorite team keep the normal score color.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.10.3",
+      "released": "2026-08-05",
+      "notes": "Fix ESPN 403s. Around 2026-08-04 ESPN's site.api began rejecting both browser-style and bare custom User-Agent strings, which returned 403 Forbidden for every request this plugin made. Requests now send an identifying agent with the project URL, which ESPN accepts. No behaviour change beyond the header.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.10.2",
+      "released": "2026-08-05",
+      "notes": "Housekeeping, no behaviour change: scroll_display.py carried a second, unreferenced copy of the bundled fallback classes at module level -- the file was the pre-adoption and adopted versions concatenated rather than one replacing the other. The live fallback in scroll_display_legacy.py is untouched. Removing the dead copy is what makes a missing constant visible instead of appearing defined; that dead block is where the ones that broke scroll mode were hiding.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.10.1",
+      "released": "2026-08-05",
+      "notes": "Fix scroll mode failing to start on LEDMatrix 3.2.0. The NBA, WNBA and NCAA separator-icon paths stayed behind on the bundled fallback class when scroll display adopted the core orchestration, so building the scroll display raised AttributeError and scroll mode did not run at all on a 3.2.0 core. Switch mode and the fallback path were unaffected.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-08-04",
+      "version": "1.10.0",
+      "notes": "Scroll display now uses the core's shared sports-scroll orchestration (LEDMatrix 3.2.0) when available, falling back to the bundled implementation on older cores. No behaviour change: all harness renders are byte-for-byte identical.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-08-02",
+      "version": "1.9.0",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-08-02",
+      "version": "1.8.3",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "version": "1.8.2",
+      "released": "2026-07-31",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-29",
+      "version": "1.8.1",
+      "notes": "Correct the example team codes in the favorite-teams help text. They are ESPN's codes and are not always the ones you would guess: Golden State is GS not GSW, New York Liberty is NY not NYL, Los Angeles Sparks is LA not LAS, UConn is CONN not UCONN, and South Carolina is SC not SCAR. Copying the old examples matched no team and showed nothing.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-29",
+      "version": "1.8.0",
+      "notes": "Fix event start times rendering in UTC. The plugin looked for the LEDMatrix global timezone only on cache_manager.config_manager; on cores that expose config_manager via the plugin manager instead, that lookup found nothing and every start time was drawn in UTC even though the clock plugin was correct on the same device. Timezone resolution now checks the plugin override, then both config managers, then the host system zone, before falling back to UTC. Adds a documented timezone setting under Advanced Settings -- previously the key was not in the config schema, so hand-editing it had no effect.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-17",
+      "version": "1.7.1",
+      "notes": "Config schema reorganized for a clearer setup experience: fine-tuning fields moved behind the web UI's collapsed Advanced Settings section (x-advanced). UX-only; no fields, defaults, or behavior changed.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-08",
+      "version": "1.7.0",
+      "notes": "Add non_favorite_live_game_duration per league: give live games without a favorite team a shorter on-screen turn than your favorites. Applies only when favorite teams are set and show_favorite_teams_only is off; defaults to 0 (off) for unchanged behavior.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-02",
+      "version": "1.6.0",
+      "notes": "Add exclude_teams (hide specific teams from live rotation and recent/final scores \u2014 spoiler protection) and filtering.favorite_live_boost (tune how much more often your favorite's live game appears in rotation vs other live games) per league.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-05-15",
+      "version": "1.5.6",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-03-30",
+      "version": "1.5.5",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-03-02",
+      "version": "1.5.4",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-02-24",
+      "version": "1.5.3",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.5.2",
+      "released": "2026-02-24",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.5.1",
+      "released": "2026-02-24",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.5.0",
+      "released": "2026-02-24",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.4.0",
+      "released": "2026-02-20",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.3.0",
+      "released": "2026-02-17",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.1.1",
+      "released": "2026-02-15",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.1.0",
+      "released": "2026-02-14",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.0.6",
+      "released": "2026-02-13",
+      "ledmatrix_min_version": "2.0.0"
+    }
+  ],
+  "stars": 0,
+  "downloads": 0,
+  "last_updated": "2026-09-20",
+  "verified": true,
+  "screenshot": "",
+  "display_modes": [
+    "nba_recent",
+    "nba_upcoming",
+    "nba_live",
+    "wnba_recent",
+    "wnba_upcoming",
+    "wnba_live",
+    "ncaam_recent",
+    "ncaam_upcoming",
+    "ncaam_live",
+    "ncaaw_recent",
+    "ncaaw_upcoming",
+    "ncaaw_live"
+  ],
+  "dependencies": [],
+  "entry_point": "manager.py",
+  "class_name": "BasketballScoreboardPlugin",
+  "compatible_versions": [
+    ">=3.4.0"
+  ]
+}

@@ -1,0 +1,220 @@
+"""
+Simplified DynamicTeamResolver for plugin use
+"""
+
+import logging
+import time
+import requests
+from typing import Dict, List
+
+logger = logging.getLogger(__name__)
+
+class DynamicTeamResolver:
+    """
+    Simplified resolver for dynamic team names to actual team abbreviations.
+    
+    This class handles special team names that represent dynamic groups
+    like AP Top 25 rankings, which update automatically.
+    """
+    
+    # Cache for rankings data
+    _rankings_cache: Dict[str, List[str]] = {}
+    _cache_timestamp: float = 0
+    _cache_duration: int = 3600  # 1 hour cache
+    
+    # Supported dynamic team patterns
+    DYNAMIC_PATTERNS = {
+        'AP_TOP_25': {'sport': 'ncaa_fb', 'limit': 25},
+        'AP_TOP_10': {'sport': 'ncaa_fb', 'limit': 10}, 
+        'AP_TOP_5': {'sport': 'ncaa_fb', 'limit': 5},
+    }
+    
+    def __init__(self, request_timeout: int = 30):
+        """Initialize the dynamic team resolver."""
+        self.request_timeout = request_timeout
+        self.logger = logger
+        
+    def resolve_teams(self, team_list: List[str], sport: str = 'ncaa_fb') -> List[str]:
+        """
+        Resolve a list of team names, expanding dynamic team names.
+        
+        Args:
+            team_list: List of team names (can include dynamic names like "AP_TOP_25")
+            sport: Sport type for context (default: 'ncaa_fb')
+            
+        Returns:
+            List of resolved team abbreviations
+        """
+        if not team_list:
+            return []
+            
+        resolved_teams = []
+        
+        for team in team_list:
+            if team in self.DYNAMIC_PATTERNS:
+                # Resolve dynamic team
+                dynamic_teams = self._resolve_dynamic_team(team, sport)
+                resolved_teams.extend(dynamic_teams)
+                self.logger.info(f"Resolved {team} to {len(dynamic_teams)} teams: {dynamic_teams[:5]}{'...' if len(dynamic_teams) > 5 else ''}")
+            elif self._is_potential_dynamic_team(team):
+                # Unknown dynamic team, skip it
+                self.logger.warning(f"Unknown dynamic team '{team}' - skipping")
+            else:
+                # Regular team name, add as-is
+                resolved_teams.append(team)
+                
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_teams = []
+        for team in resolved_teams:
+            if team not in seen:
+                seen.add(team)
+                unique_teams.append(team)
+                
+        return unique_teams
+    
+    def _resolve_dynamic_team(self, dynamic_team: str, sport: str) -> List[str]:
+        """
+        Resolve a dynamic team name to actual team abbreviations.
+        
+        Args:
+            dynamic_team: Dynamic team name (e.g., "AP_TOP_25")
+            sport: Sport type for context
+            
+        Returns:
+            List of team abbreviations
+        """
+        try:
+            pattern_config = self.DYNAMIC_PATTERNS[dynamic_team]
+            pattern_sport = pattern_config['sport']
+            limit = pattern_config['limit']
+            
+            # Check cache first
+            # Keyed by SPORT, not by pattern. Every AP_TOP_n resolves from the
+            # same poll and differs only in how far down it slices, and the
+            # value cached below is the whole list -- so keying by pattern
+            # fetched, stored and expired the identical payload once per group.
+            cache_key = f"{pattern_sport}_rankings"
+            if self._is_cache_valid():
+                cached_teams = self._rankings_cache.get(cache_key)
+                if cached_teams:
+                    self.logger.debug(f"Using cached {dynamic_team} teams")
+                    return cached_teams[:limit]
+            
+            # Fetch fresh rankings
+            rankings = self._fetch_rankings(pattern_sport)
+            if rankings:
+                # Cache the results
+                self._rankings_cache[cache_key] = rankings
+                self._cache_timestamp = time.time()
+                
+                self.logger.info(f"Fetched {len(rankings)} teams for {dynamic_team}")
+                return rankings[:limit]
+            else:
+                self.logger.warning(f"Failed to fetch rankings for {dynamic_team}")
+                return []
+                
+        except Exception as e:
+            self.logger.error(f"Error resolving dynamic team {dynamic_team}: {e}")
+            return []
+    
+    # Polls AP_TOP_n may resolve from. ESPN answers the college football
+    # rankings endpoint with four blocks -- AP Top 25, the AFCA Coaches Poll,
+    # the FCS Coaches Poll and the AFCA Division II Poll -- and taking the
+    # first is FBS by luck rather than by choice: nothing in the payload
+    # promises that order, and ESPN changes it, adding the CFP rankings in
+    # November. With a lower-division poll leading, AP_TOP_25 resolves to 25
+    # FCS schools and makes them the user's FAVOURITE teams -- and favourites
+    # are never filtered by quality or division, so every one of those games
+    # reaches the panel.
+    #
+    # An EXCLUDE list, not an allow list, so a poll ESPN invents at the top
+    # division still counts. Kept in step with SportsCore._choose_poll in
+    # sports.py, which cannot be imported here: sports.py imports this module,
+    # and the core loads both as bare top-level names with no package context,
+    # so the dependency has to point one way.
+    _NON_TOP_POLL_TYPES = frozenset({'tournament', 'fcs'})
+    _NON_TOP_POLL_NAMES = ('tournament', 'seedings', 'fcs',
+                           'division ii', 'division iii',
+                           'div ii', 'div iii')
+
+    def _choose_poll(self, rankings_data):
+        """The first poll ESPN lists that is not a lower-division one.
+
+        ESPN's own order is otherwise kept, so whichever poll it fronts is
+        still the one AP_TOP_n slices.
+        """
+        for block in rankings_data or []:
+            name = str(block.get('name') or '').lower()
+            kind = str(block.get('type') or '').lower()
+            if kind in self._NON_TOP_POLL_TYPES or any(
+                marker in name for marker in self._NON_TOP_POLL_NAMES
+            ):
+                self.logger.debug(
+                    "Skipping %s -- not a top-division poll",
+                    block.get('name') or kind)
+                continue
+            return block
+        return {}
+
+    def _fetch_rankings(self, sport: str) -> List[str]:
+        """
+        Fetch current rankings from ESPN API.
+        
+        Args:
+            sport: Sport type (e.g., 'ncaa_fb')
+            
+        Returns:
+            List of team abbreviations in ranking order
+        """
+        try:
+            # Map sport to ESPN API endpoint
+            sport_mapping = {
+                'ncaa_fb': 'football/college-football/rankings'
+            }
+            
+            endpoint = sport_mapping.get(sport)
+            if not endpoint:
+                self.logger.error(f"Unsupported sport for rankings: {sport}")
+                return []
+            
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{endpoint}"
+            
+            headers = {
+                'User-Agent': 'LEDMatrix/1.0 (+https://github.com/ChuckBuilds/LEDMatrix)',
+                'Accept': 'application/json'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=self.request_timeout)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Extract team abbreviations from rankings
+            teams = []
+            ranking = self._choose_poll(data.get('rankings'))
+            if ranking:
+                if 'ranks' in ranking:
+                    for rank_item in ranking['ranks']:
+                        team_info = rank_item.get('team', {})
+                        abbr = team_info.get('abbreviation', '')
+                        if abbr:
+                            teams.append(abbr)
+            
+            self.logger.debug(f"Fetched {len(teams)} ranked teams for {sport}")
+            return teams
+            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"API request failed for {sport} rankings: {e}")
+            return []
+        except Exception as e:
+            self.logger.error(f"Error fetching rankings for {sport}: {e}")
+            return []
+    
+    def _is_cache_valid(self) -> bool:
+        """Check if the rankings cache is still valid."""
+        return time.time() - self._cache_timestamp < self._cache_duration
+    
+    def _is_potential_dynamic_team(self, team: str) -> bool:
+        """Check if a team name looks like a dynamic team pattern."""
+        return team.startswith('AP_') or team.startswith('TOP_')
