@@ -1,0 +1,271 @@
+{
+    "web_display_autostart": true,
+    "auto_update": {
+        "enabled": false
+    },
+    "schedule": {
+        "enabled": false,
+        "mode": "per-day",
+        "start_time": "07:00",
+        "end_time": "23:00",
+        "days": {
+            "monday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "tuesday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "wednesday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "thursday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "friday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "saturday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            },
+            "sunday": {
+                "enabled": false,
+                "start_time": "07:00",
+                "end_time": "23:00"
+            }
+        }
+    },
+    "dim_schedule": {
+        "enabled": false,
+        "dim_brightness": 30,
+        "mode": "global",
+        "start_time": "20:00",
+        "end_time": "07:00",
+        "days": {
+            "monday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "tuesday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "wednesday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "thursday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "friday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "saturday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            },
+            "sunday": {
+                "enabled": false,
+                "start_time": "20:00",
+                "end_time": "07:00"
+            }
+        }
+    },
+    "timezone": "America/New_York",
+    "target_fps": 100,
+    "location": {
+        "city": "Tampa",
+        "state": "Florida",
+        "country": "US"
+    },
+    "display": {
+        "hardware": {
+            "rows": 32,
+            "cols": 64,
+            "chain_length": 2,
+            "parallel": 1,
+            "brightness": 90,
+            "hardware_mapping": "adafruit-hat-pwm",
+            "scan_mode": 0,
+            "pwm_bits": 9,
+            "pwm_dither_bits": 1,
+            "pwm_lsb_nanoseconds": 130,
+            "disable_hardware_pulsing": false,
+            "inverse_colors": false,
+            "show_refresh_rate": false,
+            "led_rgb_sequence": "RGB",
+            "limit_refresh_rate_hz": 100,
+            "pixel_mapper_config": "",
+            "orientation": "normal",
+            "row_address_type": 0,
+            "multiplexing": 0,
+            "panel_type": ""
+        },
+        "runtime": {
+            "gpio_slowdown": 3,
+            "rp1_rio": 0
+        },
+        "dynamic_duration": {
+            "max_duration_seconds": 600
+        },
+        "double_sided": {
+            "enabled": false,
+            "copies": 2,
+            "axis": "horizontal"
+        },
+        "display_durations": {},
+        "plugin_rotation_order": [],
+        "use_short_date_format": true,
+        "vegas_scroll": {
+            "live_in_ticker": false,
+            "live_weight": 3,
+            "favorite_live_weight": 5,
+            "enabled": false,
+            "scroll_speed": 50,
+            "separator_width": 32,
+            "plugin_order": [],
+            "excluded_plugins": [],
+            "target_fps": 125,
+            "buffer_ahead": 2,
+            "intra_plugin_gap": 8,
+            "render_width_pct": 100,
+            "min_content_separation": 24,
+            "min_cut_gap": 6,
+            "continuous_scroll": true,
+            "smooth_scroll": true,
+            "extend_threshold_screens": 2.0,
+            "auto_trim": true,
+            "trim_threshold": 10,
+            "content_padding": 8,
+            "min_plugin_width": 8,
+            "lead_in_width": 0,
+            "plugins_per_cycle": 6,
+            "max_plugin_width_ratio": 0.0,
+            "overflow_mode": "rotate",
+            "dynamic_duration_enabled": true,
+            "min_cycle_duration": 60,
+            "max_cycle_duration": 240,
+            "frame_based_scrolling": true,
+            "scroll_delay": 0.02
+        }
+    },
+    "sync": {
+        "role": "standalone",
+        "port": 5765,
+        "follower_position": "left"
+    },
+    "plugin_system": {
+        "plugins_directory": "plugin-repos",
+        "auto_discover": true,
+        "auto_load_enabled": true,
+        "development_mode": false
+    },
+    "web-ui-info": {
+        "enabled": false,
+        "display_duration": 10
+    },
+    "football-scoreboard": {
+        "enabled": true,
+        "schedule_lookback_days": 7,
+        "nfl": {
+            "enabled": true,
+            "live_priority": true,
+            "favorite_teams": [],
+            "display_modes": {
+                "show_live": true,
+                "show_recent": true,
+                "show_upcoming": true,
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
+            "scroll_settings": {
+                "scroll_speed": 12.0,
+                "scroll_delay": 0.01,
+                "gap_between_games": 48,
+                "show_league_separators": false,
+                "dynamic_duration": true,
+                "game_card_width": 128
+            },
+            "game_limits": {
+                "recent_games_to_show": 20,
+                "upcoming_games_to_show": 20,
+                "other_upcoming_games_to_show": 20,
+                "other_recent_games_to_show": 5,
+                "other_rotation_interval_seconds": 1800,
+                "favorite_rotation_boost": 1,
+                "other_games_min_quality": "any",
+                "other_games_divisions": [
+                    "fbs"
+                ]
+            },
+            "display_options": {
+                "show_records": true,
+                "show_ranking": false,
+                "show_odds": true,
+                "show_recent_odds": false
+            },
+            "filtering": {
+                "show_favorite_teams_only": false,
+                "show_all_live": false,
+                "favorite_live_boost": 2
+            },
+            "dynamic_duration": {
+                "enabled": true,
+                "min_duration_seconds": 30.0,
+                "modes": {
+                    "live": {
+                        "enabled": false
+                    },
+                    "recent": {
+                        "enabled": true
+                    },
+                    "upcoming": {
+                        "enabled": true
+                    }
+                }
+            }
+        }
+    },
+    "ledmatrix-flights": {
+        "enabled": false
+    },
+    "starlark-apps": {
+        "enabled": false
+    },
+    "basketball-scoreboard": {
+        "enabled": true,
+	"nba": {
+    		"enabled": true,
+    		"favorite_teams": [],
+    		"filtering": {
+        		"show_favorite_teams_only": false
+    		},
+    		"schedule_lookback_days": 2,
+    		"schedule_lookahead_days": 2,
+    		"game_limits": {
+        		"recent_games_to_show": 5,
+        		"upcoming_games_to_show": 5
+    		}
+	}
+    }
+}
