@@ -1,7 +1,7 @@
 {
   "id": "basketball-scoreboard",
   "name": "Basketball Scoreboard",
-  "version": "1.35.0",
+  "version": "1.35.1",
   "update_interval": 60,
   "description": "Live, recent, and upcoming basketball games across NBA, NCAA Men's, NCAA Women's, and WNBA with real-time scores, schedules, and March Madness tournament support",
   "author": "ChuckBuilds",
@@ -19,6 +19,12 @@
   "branch": "main",
   "plugin_path": "plugins/basketball-scoreboard",
   "versions": [
+    {
+      "version": "1.35.1",
+      "released": "2026-09-25",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "With show_favorite_teams_only enabled, recent and upcoming modes now show one latest completed game and one next upcoming game per favorite team. With it disabled, the plugin shows the full league-wide slate inside schedule_lookback_days and schedule_lookahead_days without favorites-first or other_* truncation."
+    },
     {
       "version": "1.35.0",
       "released": "2026-09-24",

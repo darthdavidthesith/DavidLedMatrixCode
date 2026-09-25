@@ -153,8 +153,8 @@ Which regime you are in depends on that league's `favorite_teams` and
 | `favorite_teams` | `show_favorite_teams_only` | What you get |
 |---|---|---|
 | empty | either | The next N games league-wide, chronologically. Every game is a non-favorite game, so the `other_*` filters apply to all of them. |
-| set | **on** (default) | Only your teams. The limit is a budget **per team** — `2` with three favorites is up to six games. |
-| set | **off** | **Your teams first, then other games to fill.** Both limits are **totals**. |
+| set | **on** (default) | Only your teams: the latest completed game and next upcoming game for each favorite team. |
+| set | **off** | All league games inside `schedule_lookback_days` and `schedule_lookahead_days`, in date order. Favorites do not receive priority. |
 
 ### The selection settings
 
