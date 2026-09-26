@@ -122,6 +122,10 @@ legacy singular `league` setting. You can mix Sleeper and ESPN entries:
 ```
 
 Fantasy Blitz fetches and cycles through the matchup screens for each league.
+When the provider supplies win probabilities, the matchup bar shows those
+probabilities and prints the split below it. If they are not available, as is
+normally the case for Sleeper matchup data, the bar falls back to the share of
+the current score.
 ESPN private-league cookies are entered in the secrets fields for that ESPN
 entry. Existing configurations using `league` continue to work and show one
 league.

@@ -552,7 +552,8 @@ class FantasyBlitzPlugin(BasePlugin):
         for league in self.leagues:
             matchups = league.get("matchups") or []
             league_pages.extend({
-                "league": league.get("name"), "week": league.get("week"),
+                "league": league.get("name"), "provider": league.get("provider"),
+                "week": league.get("week"),
                 "matchup": matchup,
                 "pair": matchups[i + 1] if i + 1 < len(matchups) else None,
             } for i, matchup in enumerate(matchups))

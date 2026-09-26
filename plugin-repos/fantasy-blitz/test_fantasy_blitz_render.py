@@ -46,8 +46,8 @@ def items():
     rows = [render.board_row(c, p, i) for i, p in enumerate(top)]
     alert = {"key": "k", "id": "9488", "name": JSN["name"], "last": JSN["last"], "pos": "WR", "team": "SEA",
              "opp": "ARI", "gain": 15.2, "total": 42.5, "desc": "82-YD TD CATCH", "td": True, "player": JSN}
-    matchup = {"home": {"name": "Gridiron Ghosts", "record": "2-0", "points": 131.42},
-               "away": {"name": "End Zone Dancers", "record": "1-1", "points": 118.9}, "mine": True}
+    matchup = {"home": {"name": "Gridiron Ghosts", "record": "2-0", "points": 131.42, "win_pct": 65},
+               "away": {"name": "End Zone Dancers", "record": "1-1", "points": 118.9, "win_pct": 35}, "mine": True}
     return {
         "card": (render.card, {"player": JSN, "list": top}),
         "card_def": (render.card, {"player": CAR}),
@@ -64,7 +64,7 @@ def items():
         "dud_single": (render.dud, dict(bust, pair=None)),
         "kings": (render.kings, {"cells": model.kings(WEEK, "ppr")}),
         "kings_gaps": (render.kings, {"cells": [(pos, None) for pos in model.POSITIONS]}),
-        "matchup": (render.matchup, {"league": "Harness League", "week": 2, "matchup": matchup, "pair": matchup}),
+        "matchup": (render.matchup, {"league": "Harness League", "provider": "sleeper", "week": 2, "matchup": matchup, "pair": matchup}),
     }
 
 

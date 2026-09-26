@@ -15,12 +15,15 @@ draw the final frame.
 """
 
 import math
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image
 
 import fantasy_blitz_draw as d
 import fantasy_blitz_font as font
+from fantasy_blitz_headshots import asset_roots
 import fantasy_blitz_model as model
 from fantasy_blitz_teams import team as team_info
 
@@ -938,6 +941,42 @@ def _kings_list(ctx: RenderContext, cells, w: int, h: int, t: float) -> Image.Im
 # S10 league matchup
 # ----------------------------------------------------------------------
 
+@lru_cache(maxsize=2)
+def _provider_logo(provider: str) -> Optional[Image.Image]:
+    if provider not in ("espn", "sleeper"):
+        return None
+    for root in asset_roots():
+        for relative in (("assets", "static_images"), ("assets", "sports", "static_images")):
+            path = Path(root, *relative, f"{provider}.png")
+            if not path.exists():
+                continue
+            try:
+                logo = Image.open(path).convert("RGBA")
+                logo.thumbnail((8, 8), Image.NEAREST)
+                return logo.copy()
+            except (OSError, ValueError):
+                return None
+    return None
+
+
+def _matchup_share(home: Dict[str, Any], away: Dict[str, Any]) -> Tuple[float, bool]:
+    home_pct = home.get("win_pct")
+    away_pct = away.get("win_pct")
+    if home_pct is not None or away_pct is not None:
+        try:
+            if home_pct is None:
+                share = 1.0 - float(away_pct) / 100.0
+            elif away_pct is None:
+                share = float(home_pct) / 100.0
+            else:
+                share = float(home_pct) / (float(home_pct) + float(away_pct))
+            return max(0.0, min(1.0, share)), True
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+    hp = float(home.get("points") or 0.0)
+    ap = float(away.get("points") or 0.0)
+    return (0.5 if hp + ap <= 0 else hp / (hp + ap)), False
+
 def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) -> Image.Image:
     """``item``: ``{"league", "week", "matchup": {"home", "away", "mine"}, "pair"?}``."""
     if w >= 192:
@@ -960,7 +999,13 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     if tall:
         d.hgrad(img, 0, 0, w, 9, (24, 96, 200), (112, 52, 190))
         right = f"WK {item.get('week')}" if item.get("week") else ""
-        d.text(img, font.fit(item.get("league") or "LEAGUE", w - font.text_width(right) - 8), 2, 2, d.WHITE)
+        logo = _provider_logo(str(item.get("provider") or ""))
+        title_x = 2
+        if logo:
+            img.paste(logo, (2, 1), logo)
+            title_x = 12
+        title_w = w - title_x - font.text_width(right) - 4
+        d.text(img, font.fit(item.get("league") or "LEAGUE", title_w), title_x, 2, d.WHITE)
         if right:
             d.text(img, right, w - 2, 2, d.WHITE, 1, "right")
         top = 12
@@ -981,15 +1026,18 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
             d.text(img, side["record"], x, y + 7, d.GRAY)
     bar_y = top + 2 * row_h + (0 if tall else -1)
     bar_h = 5 if tall else 3
-    total = hp + ap
-    share = 0.5 if total <= 0 else hp / total
+    share, uses_win_pct = _matchup_share(home, away)
     bw = w - 4
     split = int(round(bw * (0.5 + (share - 0.5) * k)))
     d.rect(img, 2, bar_y, split, bar_h, d.RARE)
     d.rect(img, 2 + split, bar_y, bw - split, bar_h, d.RED)
     d.rect(img, 2 + split, bar_y - 1, 1, bar_h + 2, d.WHITE)
     if tall:
-        status = ctx.status or ("FINAL" if ctx.phase == model.PHASE_RECAP else "")
+        status = ctx.status
+        if not status and uses_win_pct:
+            status = f"{round(share * 100)}% / {round((1.0 - share) * 100)}%"
+        elif not status and ctx.phase == model.PHASE_RECAP:
+            status = "FINAL"
         if status:
             d.text(img, status, w // 2, bar_y + bar_h + 3, d.RED if status == "LIVE" else d.GRAY, 1, "center")
     return img

@@ -36,6 +36,23 @@ def _clean_id(value: Any) -> str:
     return "".join(c for c in str(value or "").strip() if c.isalnum())
 
 
+def _win_percent(value: Any) -> Optional[float]:
+    """Read a provider win probability as a percentage when one exists."""
+    if isinstance(value, dict):
+        for key in ("win_pct", "win_percent", "winPercentage", "winPercent",
+                    "win_probability", "winProbability", "probability"):
+            if key in value:
+                value = value[key]
+                break
+    try:
+        percent = float(value)
+    except (TypeError, ValueError):
+        return None
+    if 0.0 <= percent <= 1.0:
+        percent *= 100.0
+    return max(0.0, min(100.0, percent))
+
+
 def fetch_league(data, provider: str, league_id: Any, season: Any, week: int,
                  team_name: str = "", espn_s2: str = "", swid: str = "",
                  max_age: float = 60.0) -> Optional[Dict[str, Any]]:
@@ -106,7 +123,8 @@ def normalize_sleeper_league(league: Any, users: Any, rosters: Any, matchups: An
         info = roster_info.get(m.get("roster_id"), {"name": f"TEAM {m.get('roster_id')}",
                                                     "owner": "", "record": ""})
         pairs.setdefault(m["matchup_id"], []).append(dict(
-            info, points=model.safe_float(m.get("points")) or 0.0))
+            info, points=model.safe_float(m.get("points")) or 0.0,
+            win_pct=_win_percent(m)))
     result = []
     for matchup_id in sorted(pairs):
         sides = pairs[matchup_id]
@@ -158,7 +176,7 @@ def normalize_espn_league(payload: Any, week: int) -> Dict[str, Any]:
                 pts = model.safe_float(s.get("totalPoints")) or 0.0
             sides.append(dict(teams.get(s.get("teamId"), {"name": f"TEAM {s.get('teamId')}",
                                                          "owner": "", "record": ""}),
-                              points=pts))
+                              points=pts, win_pct=_win_percent(s)))
         if len(sides) == 2:
             result.append({"home": sides[0], "away": sides[1], "mine": False})
     settings = payload.get("settings") or {}

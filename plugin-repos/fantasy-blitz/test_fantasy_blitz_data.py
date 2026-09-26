@@ -211,6 +211,12 @@ def test_provider_problems_are_explained():
     assert league.fetch_league(make_data(), "yahoo", "1", "2026", 2) is None
 
 
+def test_win_percent_accepts_fraction_and_percentage_values():
+    assert league._win_percent({"winProbability": 0.65}) == 65.0
+    assert league._win_percent({"winPercentage": 72}) == 72.0
+    assert league._win_percent({"points": 10}) is None
+
+
 # ----------------------------------------------------------------------
 # headshots
 # ----------------------------------------------------------------------
