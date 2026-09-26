@@ -254,18 +254,27 @@
     },
     "basketball-scoreboard": {
         "enabled": true,
-	"nba": {
-    		"enabled": true,
-    		"favorite_teams": [],
-    		"filtering": {
-        		"show_favorite_teams_only": false
-    		},
-    		"schedule_lookback_days": 2,
-    		"schedule_lookahead_days": 2,
-    		"game_limits": {
-        		"recent_games_to_show": 5,
-        		"upcoming_games_to_show": 5
-    		}
-	}
+        "nba": {
+            "enabled": true,
+            "favorite_teams": [],
+            "filtering": {
+                "show_favorite_teams_only": false
+            },
+            "schedule_lookback_days": 2,
+            "schedule_lookahead_days": 2,
+            "game_limits": {
+                "recent_games_to_show": 5,
+                "upcoming_games_to_show": 5
+            }
+        }
+    },
+    "fantasy-blitz": {
+        "enabled": true
+    },
+    "nfl-stat-leaders": {
+        "enabled": true
+    },
+    "odds-ticker": {
+        "enabled": true
     }
 }
