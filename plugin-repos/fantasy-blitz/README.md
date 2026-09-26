@@ -77,7 +77,7 @@ shorthand for 9 catches, 155 yards and 3 touchdowns.
    If two players share a name, add the team: `Josh Allen BUF`. Watchlist
    players get their own screen and trigger big-play alerts at a lower
    threshold (3 points instead of 6).
-4. Optional: set up **League** to add your own matchups (below).
+4. Optional: set up **League** or **Leagues** to add your own matchups (below).
 
 ### League sync
 
@@ -95,6 +95,36 @@ shorthand for 9 catches, 155 yards and 3 touchdowns.
 
 Set `team_name` to your team's name or your username, and your matchup is shown
 first and marked YOU. Leave it empty to cycle through every matchup.
+
+### Multiple leagues
+
+To show matchups from more than one league, use `leagues` instead of the
+legacy singular `league` setting. You can mix Sleeper and ESPN entries:
+
+```json
+{
+  "fantasy-blitz": {
+    "enabled": true,
+    "leagues": [
+      {
+        "provider": "sleeper",
+        "league_id": "123456789",
+        "team_name": "My Sleeper Team"
+      },
+      {
+        "provider": "espn",
+        "league_id": "987654321",
+        "team_name": "My ESPN Team"
+      }
+    ]
+  }
+}
+```
+
+Fantasy Blitz fetches and cycles through the matchup screens for each league.
+ESPN private-league cookies are entered in the secrets fields for that ESPN
+entry. Existing configurations using `league` continue to work and show one
+league.
 
 ## Panel sizes
 

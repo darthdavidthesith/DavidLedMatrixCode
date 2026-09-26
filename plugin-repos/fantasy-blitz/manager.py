@@ -117,11 +117,13 @@ class FantasyBlitzPlugin(BasePlugin):
         self.trending_adds: List[Dict[str, Any]] = []
         self.trending_drops: List[Dict[str, Any]] = []
         self.league: Optional[Dict[str, Any]] = None
+        self.leagues: List[Dict[str, Any]] = []
         self.watch_ids: Dict[str, str] = {}
         self.content: Dict[str, List[Dict[str, Any]]] = {}
         self.last_update = 0.0
         self.data_version = 0
         self.league_problem: Optional[str] = None
+        self.league_problems: List[str] = []
 
         self.alerts = model.AlertQueue(min_gap=60.0, max_age=900.0)
         self._snapshot: Optional[Dict[str, float]] = None
@@ -171,12 +173,20 @@ class FantasyBlitzPlugin(BasePlugin):
             }
         self.show_drops = bool((screens.get("hot_pickups") or {}).get("show_drops", True))
 
-        lg = config.get("league") or {}
-        self.league_provider = str(lg.get("provider", "none") or "none")
-        self.league_id = str(lg.get("league_id", "") or "")
-        self.league_team = str(lg.get("team_name", "") or "")
-        self.espn_s2 = str(lg.get("espn_s2", "") or "")
-        self.espn_swid = str(lg.get("swid", "") or "")
+        configured_leagues = config.get("leagues")
+        if isinstance(configured_leagues, list):
+            self.league_configs = [entry for entry in configured_leagues
+                                   if isinstance(entry, dict)]
+        else:
+            legacy_league = config.get("league") or {}
+            self.league_configs = [legacy_league] if isinstance(legacy_league, dict) else []
+
+        first_league = self.league_configs[0] if self.league_configs else {}
+        self.league_provider = str(first_league.get("provider", "none") or "none")
+        self.league_id = str(first_league.get("league_id", "") or "")
+        self.league_team = str(first_league.get("team_name", "") or "")
+        self.espn_s2 = str(first_league.get("espn_s2", "") or "")
+        self.espn_swid = str(first_league.get("swid", "") or "")
 
         adv = config.get("advanced") or {}
         self.big_play_min = _safe_float(adv.get("big_play_min_points", 6.0), 6.0, 1.0, 50.0)
@@ -422,16 +432,33 @@ class FantasyBlitzPlugin(BasePlugin):
     # league --------------------------------------------------------------
 
     def _update_league(self, season: str, now: float) -> None:
-        self.league_problem = league_mod.describe_provider_problem(
-            self.league_provider, self.league_id, self.espn_s2, self.espn_swid)
-        if self.league_provider == "none" or self.league_problem or not self._on("league_matchup"):
-            self.league = None
+        self.leagues = []
+        self.league_problems = []
+        self.league = None
+        self.league_problem = None
+        if not self._on("league_matchup"):
             return
         week = self.results_week if not self.use_current_week and self.phase == model.PHASE_RECAP else self.week
         age = self.live_poll if self.phase == model.PHASE_LIVE else 900
-        self.league = league_mod.fetch_league(
-            self.data, self.league_provider, self.league_id, season, week or 1,
-            self.league_team, self.espn_s2, self.espn_swid, age)
+        for index, config in enumerate(self.league_configs, start=1):
+            provider = str(config.get("provider", "none") or "none")
+            league_id = str(config.get("league_id", "") or "")
+            team_name = str(config.get("team_name", "") or "")
+            espn_s2 = str(config.get("espn_s2", "") or "")
+            espn_swid = str(config.get("swid", "") or "")
+            problem = league_mod.describe_provider_problem(
+                provider, league_id, espn_s2, espn_swid)
+            if provider == "none" or problem:
+                if problem:
+                    self.league_problems.append(f"League {index}: {problem}")
+                continue
+            league = league_mod.fetch_league(
+                self.data, provider, league_id, season, week or 1,
+                team_name, espn_s2, espn_swid, age)
+            if league:
+                self.leagues.append(league)
+        self.league = self.leagues[0] if self.leagues else None
+        self.league_problem = "; ".join(self.league_problems) or None
 
     # ------------------------------------------------------------------
     # content: what each screen shows, built once per update
@@ -521,12 +548,16 @@ class FantasyBlitzPlugin(BasePlugin):
                     "value": a["value"],
                     "note": a["note"], "trophy": True} for a in awards]
 
-        if self.league and self.league.get("matchups"):
-            matchups = self.league["matchups"]
-            content["league_matchup"] = [{
-                "league": self.league.get("name"), "week": self.league.get("week"),
-                "matchup": m, "pair": matchups[i + 1] if i + 1 < len(matchups) else None,
-            } for i, m in enumerate(matchups)]
+        league_pages = []
+        for league in self.leagues:
+            matchups = league.get("matchups") or []
+            league_pages.extend({
+                "league": league.get("name"), "week": league.get("week"),
+                "matchup": matchup,
+                "pair": matchups[i + 1] if i + 1 < len(matchups) else None,
+            } for i, matchup in enumerate(matchups))
+        if league_pages:
+            content["league_matchup"] = league_pages
 
         season_top = model.ranked(self.season_players, fmt, self.positions, 10)
         if season_top:
@@ -808,6 +839,7 @@ class FantasyBlitzPlugin(BasePlugin):
             "pending_big_plays": len(self.alerts.pending),
             "watchlist_matched": sorted(self.watch_ids.values()),
             "league": (self.league or {}).get("name"),
+            "leagues": [league.get("name") for league in self.leagues],
             "league_problem": self.league_problem,
             "last_update": self.last_update,
         })

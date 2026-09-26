@@ -184,7 +184,7 @@
         "display_duration": 10
     },
     "football-scoreboard": {
-        "enabled": true,
+        "enabled": false,
         "schedule_lookback_days": 7,
         "nfl": {
             "enabled": true,
@@ -253,7 +253,7 @@
         "enabled": false
     },
     "basketball-scoreboard": {
-        "enabled": true,
+        "enabled": false,
         "nba": {
             "enabled": true,
             "favorite_teams": [],
@@ -269,12 +269,24 @@
         }
     },
     "fantasy-blitz": {
-        "enabled": true
+        "enabled": true,
+        "leagues": [
+            {
+                "provider": "sleeper",
+                "league_id": "1312129806040584192",
+                "team_name": "davidalescott"
+            },
+            {
+                "provider": "espn",
+                "league_id": "77820422",
+                "team_name": "The Bryce is Right"
+            }
+        ]
     },
     "nfl-stat-leaders": {
-        "enabled": true
+        "enabled": false
     },
     "odds-ticker": {
-        "enabled": true
+        "enabled": false
     }
 }

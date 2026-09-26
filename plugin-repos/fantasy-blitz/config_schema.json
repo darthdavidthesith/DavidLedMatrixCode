@@ -239,6 +239,48 @@
         }
       }
     },
+    "leagues": {
+      "type": "array",
+      "title": "Leagues",
+      "description": "Optional: sync multiple Sleeper and/or ESPN leagues. Use this instead of the legacy single League setting.",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["sleeper", "espn"],
+            "default": "sleeper",
+            "description": "Where this league lives"
+          },
+          "league_id": {
+            "type": "string",
+            "default": "",
+            "maxLength": 32,
+            "description": "The league id from the league's web address"
+          },
+          "team_name": {
+            "type": "string",
+            "default": "",
+            "maxLength": 60,
+            "description": "Your team name or username; matching matchup is shown first and marked YOU"
+          },
+          "espn_s2": {
+            "type": "string",
+            "default": "",
+            "x-secret": true,
+            "description": "ESPN private leagues only: the espn_s2 cookie"
+          },
+          "swid": {
+            "type": "string",
+            "default": "",
+            "x-secret": true,
+            "description": "ESPN private leagues only: the SWID cookie"
+          }
+        }
+      }
+    },
     "advanced": {
       "type": "object",
       "title": "Advanced",

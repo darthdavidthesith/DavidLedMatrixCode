@@ -163,6 +163,31 @@ def test_off_season_shows_nothing(frozen):
     assert not plugin.has_live_content()
 
 
+def test_multiple_leagues_are_fetched_and_rendered(frozen, monkeypatch):
+    plugin, _, _ = make_plugin({
+        "leagues": [
+            {"provider": "sleeper", "league_id": "123", "team_name": "Sleeper Team"},
+            {"provider": "espn", "league_id": "456", "team_name": "ESPN Team"},
+        ]
+    })
+    fetched = []
+
+    def fake_fetch(data, provider, league_id, season, week, team_name, espn_s2, swid, age):
+        fetched.append((provider, league_id, team_name))
+        return {
+            "name": f"{provider.upper()} League",
+            "week": week,
+            "matchups": [{"home": {"name": team_name}, "away": {"name": "Opponent"}}],
+        }
+
+    monkeypatch.setattr(manager_mod.league_mod, "fetch_league", fake_fetch)
+    plugin.update()
+
+    assert fetched == [("sleeper", "123", "Sleeper Team"), ("espn", "456", "ESPN Team")]
+    assert [league["name"] for league in plugin.leagues] == ["SLEEPER League", "ESPN League"]
+    assert len(plugin.content["league_matchup"]) == 2
+
+
 def test_screens_can_be_switched_off(frozen):
     plugin, _, _ = make_plugin({"screens": {"leaderboard": {"enabled": False}}})
     plugin.update()
