@@ -959,24 +959,6 @@ def _provider_logo(provider: str) -> Optional[Image.Image]:
     return None
 
 
-def _matchup_share(home: Dict[str, Any], away: Dict[str, Any]) -> Tuple[float, bool]:
-    home_pct = home.get("win_pct")
-    away_pct = away.get("win_pct")
-    if home_pct is not None or away_pct is not None:
-        try:
-            if home_pct is None:
-                share = 1.0 - float(away_pct) / 100.0
-            elif away_pct is None:
-                share = float(home_pct) / 100.0
-            else:
-                share = float(home_pct) / (float(home_pct) + float(away_pct))
-            return max(0.0, min(1.0, share)), True
-        except (TypeError, ValueError, ZeroDivisionError):
-            pass
-    hp = float(home.get("points") or 0.0)
-    ap = float(away.get("points") or 0.0)
-    return (0.5 if hp + ap <= 0 else hp / (hp + ap)), False
-
 def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) -> Image.Image:
     """``item``: ``{"league", "week", "matchup": {"home", "away", "mine"}, "pair"?}``."""
     if w >= 192:
@@ -996,6 +978,10 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     tall = h >= 64
     rows = [(home, hp), (away, ap)]
     top = 1
+    compact_logo = _provider_logo(str(item.get("provider") or "")) if not tall else None
+    compact_offset = 9 if compact_logo else 0
+    if compact_logo:
+        img.paste(compact_logo, (0, 0), compact_logo)
     if tall:
         d.hgrad(img, 0, 0, w, 9, (24, 96, 200), (112, 52, 190))
         right = f"WK {item.get('week')}" if item.get("week") else ""
@@ -1017,29 +1003,19 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
         pts_text = model.fmt_points(value * k)
         p_scale = 2 if font.text_width(pts_text, 2) <= w // 2 - 4 else 1
         pts_w = d.big_number(img, pts_text, w - 2, y, color, p_scale, "right", shadow=False)
-        x = 2
+        x = 2 + compact_offset
         if i == 0 and m.get("mine"):
             x += d.tag(img, x, y, "YOU", d.RARE) + 2
         name_w = w - pts_w - 6 - x
         ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.GOLD if leading else d.WHITE, t)
-        if tall and side.get("record"):
+        if side.get("record"):
             d.text(img, side["record"], x, y + 7, d.GRAY)
-    bar_y = top + 2 * row_h + (0 if tall else -1)
-    bar_h = 5 if tall else 3
-    share, uses_win_pct = _matchup_share(home, away)
-    bw = w - 4
-    split = int(round(bw * (0.5 + (share - 0.5) * k)))
-    d.rect(img, 2, bar_y, split, bar_h, d.RARE)
-    d.rect(img, 2 + split, bar_y, bw - split, bar_h, d.RED)
-    d.rect(img, 2 + split, bar_y - 1, 1, bar_h + 2, d.WHITE)
     if tall:
         status = ctx.status
-        if not status and uses_win_pct:
-            status = f"{round(share * 100)}% / {round((1.0 - share) * 100)}%"
-        elif not status and ctx.phase == model.PHASE_RECAP:
+        if not status and ctx.phase == model.PHASE_RECAP:
             status = "FINAL"
         if status:
-            d.text(img, status, w // 2, bar_y + bar_h + 3, d.RED if status == "LIVE" else d.GRAY, 1, "center")
+            d.text(img, status, w // 2, h - 8, d.RED if status == "LIVE" else d.GRAY, 1, "center")
     return img
 
 
