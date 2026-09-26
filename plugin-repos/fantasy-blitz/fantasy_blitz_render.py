@@ -943,16 +943,21 @@ def _kings_list(ctx: RenderContext, cells, w: int, h: int, t: float) -> Image.Im
 
 @lru_cache(maxsize=2)
 def _provider_logo(provider: str) -> Optional[Image.Image]:
+    provider = str(provider or "").strip().lower()
     if provider not in ("espn", "sleeper"):
         return None
-    for root in asset_roots():
+    roots = list(asset_roots())
+    plugin_root = Path(__file__).resolve().parents[2]
+    if plugin_root not in roots:
+        roots.insert(0, plugin_root)
+    for root in roots:
         for relative in (("assets", "static_images"), ("assets", "sports", "static_images")):
             path = Path(root, *relative, f"{provider}.png")
             if not path.exists():
                 continue
             try:
                 logo = Image.open(path).convert("RGBA")
-                logo.thumbnail((8, 8), Image.NEAREST)
+                logo.thumbnail((10, 10), Image.NEAREST)
                 return logo.copy()
             except (OSError, ValueError):
                 return None
@@ -979,7 +984,7 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     rows = [(home, hp), (away, ap)]
     top = 1
     compact_logo = _provider_logo(str(item.get("provider") or "")) if not tall else None
-    compact_offset = 9 if compact_logo else 0
+    compact_offset = 11 if compact_logo else 0
     if compact_logo:
         img.paste(compact_logo, (0, 0), compact_logo)
     if tall:

@@ -281,7 +281,20 @@
                 "league_id": "77820422",
                 "team_name": "The Bryce is Right"
             }
-        ]
+        ],
+        "screens": {
+            "player_card": {"enabled": false},
+            "leaderboard": {"enabled": false},
+            "big_play": {"enabled": false},
+            "dud_alert": {"enabled": false},
+            "hot_pickups": {"enabled": false},
+            "position_kings": {"enabled": false},
+            "injury_report": {"enabled": false},
+            "watchlist": {"enabled": false},
+            "weekly_awards": {"enabled": false},
+            "league_matchup": {"enabled": true},
+            "season_race": {"enabled": false}
+        }
     },
     "nfl-stat-leaders": {
         "enabled": false
