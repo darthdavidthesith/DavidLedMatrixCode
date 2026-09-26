@@ -14,6 +14,7 @@ intro animations (count-up, bar fills, slide-ins) and the continuous ones
 draw the final frame.
 """
 
+import logging
 import math
 from functools import lru_cache
 from pathlib import Path
@@ -28,6 +29,8 @@ import fantasy_blitz_model as model
 from fantasy_blitz_teams import team as team_info
 
 RGB = Tuple[int, int, int]
+
+_LOG = logging.getLogger(__name__)
 
 
 def ease(x: float) -> float:
@@ -943,24 +946,35 @@ def _kings_list(ctx: RenderContext, cells, w: int, h: int, t: float) -> Image.Im
 
 @lru_cache(maxsize=2)
 def _provider_logo(provider: str) -> Optional[Image.Image]:
+    # Logged once per provider (this function is lru_cached), so it is safe
+    # to leave in place: it will not spam the log every frame.
     provider = str(provider or "").strip().lower()
     if provider not in ("espn", "sleeper"):
+        _LOG.warning("Fantasy Blitz: matchup item had no usable provider (got %r)", provider)
         return None
     roots = list(asset_roots())
     plugin_root = Path(__file__).resolve().parents[2]
     if plugin_root not in roots:
         roots.insert(0, plugin_root)
+    tried = []
     for root in roots:
         for relative in (("assets", "static_images"), ("assets", "sports", "static_images")):
             path = Path(root, *relative, f"{provider}.png")
+            tried.append(str(path))
             if not path.exists():
                 continue
             try:
                 logo = Image.open(path).convert("RGBA")
                 logo.thumbnail((10, 10), Image.NEAREST)
-                return logo.copy()
-            except (OSError, ValueError):
+                logo = logo.copy()
+                _LOG.info("Fantasy Blitz: loaded %s logo from %s (size=%s)",
+                         provider, path, logo.size)
+                return logo
+            except (OSError, ValueError) as exc:
+                _LOG.warning("Fantasy Blitz: found %s logo at %s but could not load it: %s",
+                            provider, path, exc)
                 return None
+    _LOG.warning("Fantasy Blitz: no %s logo found; checked %s", provider, tried)
     return None
 
 
