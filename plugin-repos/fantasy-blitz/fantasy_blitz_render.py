@@ -82,7 +82,7 @@ class RenderContext:
         mask = Image.new("L", strip.size, 0)
         d.text(strip, s, 1, 1, color, 1, "left", outline)
         font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
-        font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
+        box = (offset + 1, 0, offset + 1 + max_w, strip.height)
         img.paste(strip.crop(box), (left, y - 1), mask.crop(box))
         return max_w
 
