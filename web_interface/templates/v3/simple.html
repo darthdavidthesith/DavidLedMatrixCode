@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Matrix - Quick Controls</title>
+
+    <!-- Installable web app (Add to Home Screen) -->
+    <link rel="manifest" href="{{ url_for('static', filename='v3/manifest.json') }}">
+    <meta name="theme-color" content="#111827">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='v3/icons/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='v3/icons/icon-192.png') }}">
+
+    <script>
+    window.LEDMATRIX_DEBUG = (function() {
+        try { return localStorage.getItem('pluginDebug') === 'true'; } catch (e) { return false; }
+    })();
+    window.debugLog = function() {
+        if (window.LEDMATRIX_DEBUG) console.log.apply(console, arguments);
+    };
+    </script>
+
+    <!-- Theme initialization (must run before CSS to prevent flash) -->
+    <script>
+    (function() {
+        function getStorage(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+        function setStorage(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* no-op */ } }
+        function prefersDark() {
+            try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+            catch (e) { return false; }
+        }
+        var saved = getStorage('theme');
+        var theme = saved || (prefersDark() ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+        window.toggleTheme = function() {
+            try {
+                var current = document.documentElement.getAttribute('data-theme');
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                setStorage('theme', next);
+            } catch (e) { /* no-op */ }
+        };
+    })();
+    </script>
+
+    <!-- HTMX: local (vendored) first, pinned CDN only as a last-ditch rescue -->
+    <script>
+        (function() {
+            const htmxSrc = '/static/v3/js/htmx.min.js';
+            const htmxCdn = 'https://unpkg.com/htmx.org@1.9.10';
+            function loadScript(src, fallback, onLoad) {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = onLoad || (() => {});
+                script.onerror = function() {
+                    if (fallback && src !== fallback) {
+                        const fallbackScript = document.createElement('script');
+                        fallbackScript.src = fallback;
+                        fallbackScript.onload = onLoad || (() => {});
+                        document.head.appendChild(fallbackScript);
+                    } else {
+                        console.error(`Failed to load script: ${src}`);
+                    }
+                };
+                document.head.appendChild(script);
+            }
+            loadScript(htmxSrc, htmxCdn, function() {
+                setTimeout(function() {
+                    if (typeof htmx === 'undefined') {
+                        console.error('HTMX not initialized after load, trying CDN rescue...');
+                        loadScript(htmxCdn, null, function() {});
+                    }
+                }, 100);
+            });
+        })();
+    </script>
+    <script src="{{ url_for('static', filename='v3/js/htmx-config.js') }}"></script>
+
+    <!-- app-shell.js provides plugin-config save/toggle handling
+         (validatePluginConfigForm, handleConfigSave, handleToggleResponse);
+         it must run before Alpine starts. -->
+    <script defer src="{{ url_for('static', filename='v3/js/app-shell.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='v3/js/alpinejs.min.js') }}"></script>
+    <script>
+        window.addEventListener('load', function() {
+            if (typeof window.Alpine === 'undefined') {
+                console.warn('[Alpine] Local file failed to load, falling back to CDN');
+                const s = document.createElement('script');
+                s.src = 'https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js';
+                document.head.appendChild(s);
+            }
+        });
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='v3/vendor/fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='v3/app.css') }}">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Toast target used by showNotification() (from app.js) -->
+    <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <div class="max-w-2xl mx-auto px-4 py-6">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-xl font-bold text-gray-900">LED Matrix Quick Controls</h1>
+            <button type="button" onclick="window.toggleTheme()"
+                    class="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+                    aria-label="Toggle dark mode">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+
+        <!-- Display service controls -->
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold text-gray-900">Display</h2>
+                <span id="simple-service-status" class="text-sm font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
+                    Checking&hellip;
+                </span>
+            </div>
+            <div class="flex flex-wrap gap-2" hx-ext="json-enc">
+                <button type="button"
+                        hx-post="/api/v3/system/action"
+                        hx-vals='{"action": "start_display"}'
+                        hx-swap="none"
+                        hx-on::after-request="window.simpleAfterSystemAction(event, 'Display started')"
+                        class="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 text-sm font-semibold">
+                    <i class="fas fa-play mr-2"></i>Start
+                </button>
+                <button type="button"
+                        hx-post="/api/v3/system/action"
+                        hx-vals='{"action": "stop_display"}'
+                        hx-swap="none"
+                        hx-on::after-request="window.simpleAfterSystemAction(event, 'Display stopped')"
+                        class="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 text-sm font-semibold">
+                    <i class="fas fa-stop mr-2"></i>Stop
+                </button>
+                <button type="button"
+                        hx-post="/api/v3/system/action"
+                        hx-vals='{"action": "restart_display_service"}'
+                        hx-swap="none"
+                        hx-on::after-request="window.simpleAfterSystemAction(event, 'Display restarted')"
+                        class="px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-sm font-semibold text-gray-900">
+                    <i class="fas fa-redo mr-2"></i>Restart
+                </button>
+            </div>
+        </div>
+
+        <!-- Installed plugins: enable/disable and settings -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Plugins</h2>
+            {% if plugins %}
+            <div class="space-y-3">
+                {% for plugin in plugins %}
+                <div class="border border-gray-200 rounded-lg overflow-hidden" x-data="{ open: false }">
+                    <button type="button" @click="open = !open"
+                            hx-get="/partials/plugin-config/{{ plugin.id }}"
+                            hx-trigger="click once"
+                            hx-target="#simple-cfg-{{ plugin.id|replace('.', '-') }}"
+                            hx-swap="innerHTML"
+                            class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left">
+                        <span class="font-medium text-gray-900">{{ plugin.name }}</span>
+                        <span class="flex items-center gap-2">
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full {{ 'bg-green-100 text-green-700' if plugin.enabled else 'bg-gray-200 text-gray-600' }}">
+                                {{ 'Enabled' if plugin.enabled else 'Disabled' }}
+                            </span>
+                            <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </span>
+                    </button>
+                    <div x-show="open" style="display: none;" class="p-4 border-t border-gray-200">
+                        <div id="simple-cfg-{{ plugin.id|replace('.', '-') }}" class="text-sm text-gray-500">
+                            Loading settings&hellip;
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-500">No plugins installed.</p>
+            {% endif %}
+        </div>
+
+        <p class="text-xs text-gray-400 mt-6 text-center">
+            <a href="/" class="underline">Open the full control panel</a>
+        </p>
+    </div>
+
+    <script src="{{ url_for('static', filename='v3/app.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/js/tooltips.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/js/utils/dialog.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/js/utils/error_handler.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/js/plugins/api_client.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/js/plugins/state_manager.js') }}" defer></script>
+    <script src="{{ widgets_bundle_url() }}" defer></script>
+    <script src="{{ url_for('static', filename='v3/plugins_manager.js') }}?v=20260307" defer></script>
+
+    <script>
+        window.simpleAfterSystemAction = function(event, defaultMessage) {
+            var message = defaultMessage, status = 'success';
+            try {
+                var data = JSON.parse(event.detail.xhr.responseText);
+                message = data.message || message;
+                status = data.status || status;
+            } catch (e) {
+                if (event.detail.xhr && event.detail.xhr.status >= 400) status = 'error';
+            }
+            if (typeof window.showNotification === 'function') window.showNotification(message, status);
+            window.simpleRefreshStatus();
+        };
+
+        window.simpleRefreshStatus = function() {
+            fetch('/api/v3/system/status')
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    var el = document.getElementById('simple-service-status');
+                    if (!el) return;
+                    var active = !!(resp.data && resp.data.service_active);
+                    el.textContent = active ? 'Running' : 'Stopped';
+                    el.className = 'text-sm font-medium px-2 py-0.5 rounded-full ' +
+                        (active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600');
+                })
+                .catch(function () {});
+        };
+        window.simpleRefreshStatus();
+    </script>
+</body>
+</html>

@@ -619,93 +619,115 @@ def _load_schedule_partial():
         return "Error loading partial", 500
 
 
+def _get_plugins_list_data():
+    """Installed plugins with the same enabled/verified/loaded fields the
+    Plugin Management tab shows. Shared by that tab's partial and by the
+    simplified control panel, so both list the same plugins the same way.
+    """
+    import json
+    from pathlib import Path
+
+    plugins_data = []
+
+    # Get installed plugins if managers are available
+    if pages_v3.plugin_manager and pages_v3.plugin_store_manager:
+        try:
+            # Get all installed plugin info
+            all_plugin_info = pages_v3.plugin_manager.get_all_plugin_info()
+
+            # Load config once before the loop (not per-plugin)
+            full_config = pages_v3.config_manager.load_config() if pages_v3.config_manager else {}
+
+            # Format for the web interface
+            for plugin_info in all_plugin_info:
+                plugin_id = plugin_info.get('id')
+
+                # Re-read manifest from disk to ensure we have the latest metadata
+                manifest_path = Path(pages_v3.plugin_manager.plugins_dir) / plugin_id / "manifest.json"
+                if manifest_path.exists():
+                    try:
+                        with open(manifest_path, 'r', encoding='utf-8') as f:
+                            fresh_manifest = json.load(f)
+                        # Update plugin_info with fresh manifest data
+                        plugin_info.update(fresh_manifest)
+                    except Exception:
+                        # If we can't read the fresh manifest, use the cached one
+                        logger.warning("Could not read fresh manifest for plugin: %s", plugin_id)
+
+                # Get enabled status from config (source of truth)
+                # Read from config file first, fall back to plugin instance if config doesn't have the key
+                enabled = None
+                if pages_v3.config_manager:
+                    plugin_config = full_config.get(plugin_id, {})
+                    # Check if 'enabled' key exists in config (even if False)
+                    if 'enabled' in plugin_config:
+                        enabled = bool(plugin_config['enabled'])
+
+                # Fallback to plugin instance if config doesn't have enabled key
+                if enabled is None:
+                    plugin_instance = pages_v3.plugin_manager.get_plugin(plugin_id)
+                    if plugin_instance:
+                        enabled = plugin_instance.enabled
+                    else:
+                        # Default to True if no config key and plugin not loaded (matches BasePlugin default)
+                        enabled = True
+
+                # Get verified status from store registry (no GitHub API calls needed)
+                store_info = pages_v3.plugin_store_manager.get_registry_info(plugin_id)
+                verified = store_info.get('verified', False) if store_info else False
+
+                last_updated = plugin_info.get('last_updated')
+                last_commit = plugin_info.get('last_commit') or plugin_info.get('last_commit_sha')
+                branch = plugin_info.get('branch')
+
+                if store_info:
+                    last_updated = last_updated or store_info.get('last_updated') or store_info.get('last_updated_iso')
+                    last_commit = last_commit or store_info.get('last_commit') or store_info.get('last_commit_sha')
+                    branch = branch or store_info.get('branch') or store_info.get('default_branch')
+
+                plugins_data.append({
+                    'id': plugin_id,
+                    'name': plugin_info.get('name', plugin_id),
+                    'author': plugin_info.get('author', 'Unknown'),
+                    'category': plugin_info.get('category', 'General'),
+                    'description': plugin_info.get('description', 'No description available'),
+                    'tags': plugin_info.get('tags', []),
+                    'enabled': enabled,
+                    'verified': verified,
+                    'loaded': plugin_info.get('loaded', False),
+                    'last_updated': last_updated,
+                    'last_commit': last_commit,
+                    'branch': branch
+                })
+        except Exception:
+            logger.error("Error loading plugin data", exc_info=True)
+
+    return plugins_data
+
+
 def _load_plugins_partial():
     """Load plugins management partial"""
     try:
-        import json
-        from pathlib import Path
-        
-        # Load plugin data from the plugin system
-        plugins_data = []
-
-        # Get installed plugins if managers are available
-        if pages_v3.plugin_manager and pages_v3.plugin_store_manager:
-            try:
-                # Get all installed plugin info
-                all_plugin_info = pages_v3.plugin_manager.get_all_plugin_info()
-
-                # Load config once before the loop (not per-plugin)
-                full_config = pages_v3.config_manager.load_config() if pages_v3.config_manager else {}
-
-                # Format for the web interface
-                for plugin_info in all_plugin_info:
-                    plugin_id = plugin_info.get('id')
-
-                    # Re-read manifest from disk to ensure we have the latest metadata
-                    manifest_path = Path(pages_v3.plugin_manager.plugins_dir) / plugin_id / "manifest.json"
-                    if manifest_path.exists():
-                        try:
-                            with open(manifest_path, 'r', encoding='utf-8') as f:
-                                fresh_manifest = json.load(f)
-                            # Update plugin_info with fresh manifest data
-                            plugin_info.update(fresh_manifest)
-                        except Exception as e:
-                            # If we can't read the fresh manifest, use the cached one
-                            logger.warning("Could not read fresh manifest for plugin: %s", plugin_id)
-
-                    # Get enabled status from config (source of truth)
-                    # Read from config file first, fall back to plugin instance if config doesn't have the key
-                    enabled = None
-                    if pages_v3.config_manager:
-                        plugin_config = full_config.get(plugin_id, {})
-                        # Check if 'enabled' key exists in config (even if False)
-                        if 'enabled' in plugin_config:
-                            enabled = bool(plugin_config['enabled'])
-                    
-                    # Fallback to plugin instance if config doesn't have enabled key
-                    if enabled is None:
-                        plugin_instance = pages_v3.plugin_manager.get_plugin(plugin_id)
-                        if plugin_instance:
-                            enabled = plugin_instance.enabled
-                        else:
-                            # Default to True if no config key and plugin not loaded (matches BasePlugin default)
-                            enabled = True
-
-                    # Get verified status from store registry (no GitHub API calls needed)
-                    store_info = pages_v3.plugin_store_manager.get_registry_info(plugin_id)
-                    verified = store_info.get('verified', False) if store_info else False
-
-                    last_updated = plugin_info.get('last_updated')
-                    last_commit = plugin_info.get('last_commit') or plugin_info.get('last_commit_sha')
-                    branch = plugin_info.get('branch')
-
-                    if store_info:
-                        last_updated = last_updated or store_info.get('last_updated') or store_info.get('last_updated_iso')
-                        last_commit = last_commit or store_info.get('last_commit') or store_info.get('last_commit_sha')
-                        branch = branch or store_info.get('branch') or store_info.get('default_branch')
-
-                    plugins_data.append({
-                        'id': plugin_id,
-                        'name': plugin_info.get('name', plugin_id),
-                        'author': plugin_info.get('author', 'Unknown'),
-                        'category': plugin_info.get('category', 'General'),
-                        'description': plugin_info.get('description', 'No description available'),
-                        'tags': plugin_info.get('tags', []),
-                        'enabled': enabled,
-                        'verified': verified,
-                        'loaded': plugin_info.get('loaded', False),
-                        'last_updated': last_updated,
-                        'last_commit': last_commit,
-                        'branch': branch
-                    })
-            except Exception as e:
-                logger.error("Error loading plugin data", exc_info=True)
-
         return render_template('v3/partials/plugins.html',
-                             plugins=plugins_data)
+                             plugins=_get_plugins_list_data())
     except Exception as e:
         logger.error("Error loading partial", exc_info=True)
         return "Error loading partial", 500
+
+
+@pages_v3.route('/simple')
+def simple_control_panel():
+    """A stripped-down control panel for quick phone access: display
+    start/stop/restart and per-plugin settings, without the full admin UI's
+    tabs, plugin store or advanced tools.
+
+    Reuses the same plugin listing data as the Plugin Management tab and the
+    same schema-driven ``/partials/plugin-config/<plugin_id>`` form the full
+    UI uses for a plugin's settings -- nothing about a specific plugin's
+    fields is hardcoded or duplicated here.
+    """
+    return render_template('v3/simple.html', plugins=_get_plugins_list_data())
+
 
 def _load_fonts_partial():
     """Load fonts management partial"""
