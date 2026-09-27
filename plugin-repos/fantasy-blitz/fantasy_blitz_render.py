@@ -57,31 +57,21 @@ class RenderContext:
         self.moving = False
 
     def label(self, img: Image.Image, text: object, x: int, y: int, max_w: int, color,
-              t: float, align: str = "left", outline: Optional[RGB] = None, bold: bool = False) -> int:
+              t: float, align: str = "left", outline: Optional[RGB] = None) -> int:
         """Text that always fits ``max_w``: whole, scrolling, or cut at a letter.
 
         A name too long for its box scrolls (a marquee that pauses at each
         end) when animation is on, and is cut at a whole character when it
         is off. ``x`` is the box's left edge, centre or right edge per
         ``align``, exactly as for plain text.
-
-        ``bold`` fattens the strokes a little by drawing the glyphs twice,
-        one pixel apart, the usual trick for a pixel font with no bold cut.
         """
         s = font.normalize(text)
         width = font.text_width(s)
-
-        def draw(im: Image.Image, ss: str, xx: int, yy: int, al: str) -> int:
-            drawn = d.text(im, ss, xx, yy, color, 1, al, outline)
-            if bold:
-                d.text(im, ss, xx + 1, yy, color, 1, al, outline)
-            return drawn
-
         if width <= max_w or max_w <= 0:
-            return draw(img, s, x, y, align)
+            return d.text(img, s, x, y, color, 1, align, outline)
         left = x if align == "left" else (x - max_w // 2 if align == "center" else x - max_w)
         if not self.animate:
-            return draw(img, font.fit(s, max_w), left, y, "left")
+            return d.text(img, font.fit(s, max_w), left, y, color, 1, "left", outline)
         self.moving = True
         travel = width - max_w
         pause, speed = 1.2, 14.0
@@ -89,15 +79,9 @@ class RenderContext:
         phase = t % cycle
         offset = 0 if phase < pause else min(travel, int((phase - pause) * speed))
         strip = Image.new("RGB", (width + 2, font.GLYPH_HEIGHT + 2), d.BLACK)
-        draw(strip, s, 1, 1, "left")
-        box = (offset + 1, 0, offset + 1 + max_w, strip.height)
-        if bold:
-            # The strip's own background is black, matching every bold=True
-            # caller, so an opaque blit reproduces the second, offset strike
-            # exactly instead of clipping it to a mask sized for one glyph.
-            img.paste(strip.crop(box), (left, y - 1))
-            return max_w
         mask = Image.new("L", strip.size, 0)
+        d.text(strip, s, 1, 1, color, 1, "left", outline)
+        font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
         font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
         img.paste(strip.crop(box), (left, y - 1), mask.crop(box))
         return max_w
@@ -1035,7 +1019,7 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
         if right:
             d.text(img, right, w - 2, 2, d.WHITE, 1, "right")
         top = 12
-    row_h = 19 if tall else 13
+    row_h = 19 if tall else 16
     for i, (side, value) in enumerate(rows):
         y = top + i * row_h
         pts_text = model.fmt_points(value * k)
@@ -1043,9 +1027,9 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
         pts_w = d.big_number(img, pts_text, w - 2, y, d.WHITE, p_scale, "right", shadow=False)
         x = 2 + compact_offset
         name_w = w - pts_w - 6 - x
-        ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.WHITE, t, bold=True)
+        ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.WHITE, t)
         if side.get("record"):
-            d.tag(img, x, y + 6, side["record"], d.RARE)
+            d.tag(img, x, y + 8, side["record"], d.WHITE, d.INK)
     if tall:
         status = ctx.status
         if not status and ctx.phase == model.PHASE_RECAP:
