@@ -65,16 +65,17 @@ class RenderContext:
         is off. ``x`` is the box's left edge, centre or right edge per
         ``align``, exactly as for plain text.
 
-        ``bold`` swaps flat text for the drop-shadow/highlight treatment
-        :func:`fantasy_blitz_draw.big_number` uses for score numerals.
+        ``bold`` fattens the strokes a little by drawing the glyphs twice,
+        one pixel apart, the usual trick for a pixel font with no bold cut.
         """
         s = font.normalize(text)
         width = font.text_width(s)
 
         def draw(im: Image.Image, ss: str, xx: int, yy: int, al: str) -> int:
+            drawn = d.text(im, ss, xx, yy, color, 1, al, outline)
             if bold:
-                return d.big_number(im, ss, xx, yy, color, 1, al, shadow=True)
-            return d.text(im, ss, xx, yy, color, 1, al, outline)
+                d.text(im, ss, xx + 1, yy, color, 1, al, outline)
+            return drawn
 
         if width <= max_w or max_w <= 0:
             return draw(img, s, x, y, align)
@@ -91,9 +92,9 @@ class RenderContext:
         draw(strip, s, 1, 1, "left")
         box = (offset + 1, 0, offset + 1 + max_w, strip.height)
         if bold:
-            # Every bold=True caller draws on a plain black background, so an
-            # opaque blit reproduces the drop shadow exactly instead of
-            # clipping it to a mask sized for flat (non-shadowed) glyphs.
+            # The strip's own background is black, matching every bold=True
+            # caller, so an opaque blit reproduces the second, offset strike
+            # exactly instead of clipping it to a mask sized for one glyph.
             img.paste(strip.crop(box), (left, y - 1))
             return max_w
         mask = Image.new("L", strip.size, 0)
@@ -1044,7 +1045,7 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
         name_w = w - pts_w - 6 - x
         ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.WHITE, t, bold=True)
         if side.get("record"):
-            d.text(img, side["record"], x, y + 7, d.GRAY)
+            d.tag(img, x, y + 6, side["record"], d.RARE)
     if tall:
         status = ctx.status
         if not status and ctx.phase == model.PHASE_RECAP:
