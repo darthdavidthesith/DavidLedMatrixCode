@@ -632,6 +632,11 @@ def _get_plugins_list_data():
     # Get installed plugins if managers are available
     if pages_v3.plugin_manager and pages_v3.plugin_store_manager:
         try:
+            # discover_plugins() populates plugin_manifests; app.py skips this
+            # at startup for faster boot, so a route reading plugin info must
+            # call it itself rather than assume some earlier request already did.
+            pages_v3.plugin_manager.discover_plugins()
+
             # Get all installed plugin info
             all_plugin_info = pages_v3.plugin_manager.get_all_plugin_info()
 
