@@ -57,21 +57,30 @@ class RenderContext:
         self.moving = False
 
     def label(self, img: Image.Image, text: object, x: int, y: int, max_w: int, color,
-              t: float, align: str = "left", outline: Optional[RGB] = None) -> int:
+              t: float, align: str = "left", outline: Optional[RGB] = None, bold: bool = False) -> int:
         """Text that always fits ``max_w``: whole, scrolling, or cut at a letter.
 
         A name too long for its box scrolls (a marquee that pauses at each
         end) when animation is on, and is cut at a whole character when it
         is off. ``x`` is the box's left edge, centre or right edge per
         ``align``, exactly as for plain text.
+
+        ``bold`` swaps flat text for the drop-shadow/highlight treatment
+        :func:`fantasy_blitz_draw.big_number` uses for score numerals.
         """
         s = font.normalize(text)
         width = font.text_width(s)
+
+        def draw(im: Image.Image, ss: str, xx: int, yy: int, al: str) -> int:
+            if bold:
+                return d.big_number(im, ss, xx, yy, color, 1, al, shadow=True)
+            return d.text(im, ss, xx, yy, color, 1, al, outline)
+
         if width <= max_w or max_w <= 0:
-            return d.text(img, s, x, y, color, 1, align, outline)
+            return draw(img, s, x, y, align)
         left = x if align == "left" else (x - max_w // 2 if align == "center" else x - max_w)
         if not self.animate:
-            return d.text(img, font.fit(s, max_w), left, y, color, 1, "left", outline)
+            return draw(img, font.fit(s, max_w), left, y, "left")
         self.moving = True
         travel = width - max_w
         pause, speed = 1.2, 14.0
@@ -79,10 +88,16 @@ class RenderContext:
         phase = t % cycle
         offset = 0 if phase < pause else min(travel, int((phase - pause) * speed))
         strip = Image.new("RGB", (width + 2, font.GLYPH_HEIGHT + 2), d.BLACK)
-        mask = Image.new("L", strip.size, 0)
-        d.text(strip, s, 1, 1, color, 1, "left", outline)
-        font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
+        draw(strip, s, 1, 1, "left")
         box = (offset + 1, 0, offset + 1 + max_w, strip.height)
+        if bold:
+            # Every bold=True caller draws on a plain black background, so an
+            # opaque blit reproduces the drop shadow exactly instead of
+            # clipping it to a mask sized for flat (non-shadowed) glyphs.
+            img.paste(strip.crop(box), (left, y - 1))
+            return max_w
+        mask = Image.new("L", strip.size, 0)
+        font.draw_text(mask, s, 1, 1, 255, 1, "left", 255 if outline is not None else None)
         img.paste(strip.crop(box), (left, y - 1), mask.crop(box))
         return max_w
 
@@ -944,10 +959,10 @@ def _kings_list(ctx: RenderContext, cells, w: int, h: int, t: float) -> Image.Im
 # S10 league matchup
 # ----------------------------------------------------------------------
 
-@lru_cache(maxsize=2)
-def _provider_logo(provider: str) -> Optional[Image.Image]:
-    # Logged once per provider (this function is lru_cached), so it is safe
-    # to leave in place: it will not spam the log every frame.
+@lru_cache(maxsize=8)
+def _provider_logo(provider: str, max_size: int = 10) -> Optional[Image.Image]:
+    # Logged once per (provider, size) pair (this function is lru_cached), so
+    # it is safe to leave in place: it will not spam the log every frame.
     provider = str(provider or "").strip().lower()
     if provider not in ("espn", "sleeper"):
         _LOG.warning("Fantasy Blitz: matchup item had no usable provider (got %r)", provider)
@@ -965,7 +980,7 @@ def _provider_logo(provider: str) -> Optional[Image.Image]:
                 continue
             try:
                 logo = Image.open(path).convert("RGBA")
-                logo.thumbnail((10, 10), Image.NEAREST)
+                logo.thumbnail((max_size, max_size), Image.NEAREST)
                 logo = logo.copy()
                 _LOG.info("Fantasy Blitz: loaded %s logo from %s (size=%s)",
                          provider, path, logo.size)
@@ -997,14 +1012,19 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     tall = h >= 64
     rows = [(home, hp), (away, ap)]
     top = 1
-    compact_logo = _provider_logo(str(item.get("provider") or "")) if not tall else None
-    compact_offset = 11 if compact_logo else 0
-    if compact_logo:
-        img.paste(compact_logo, (0, 0), compact_logo)
+    provider = str(item.get("provider") or "")
+    compact_logo = None
+    compact_offset = 0
+    if not tall:
+        compact_logo = _provider_logo(provider, min(h, 32))
+        if compact_logo:
+            paste_y = (h - compact_logo.height) // 2
+            img.paste(compact_logo, (0, paste_y), compact_logo)
+            compact_offset = compact_logo.width + 3
     if tall:
         d.hgrad(img, 0, 0, w, 9, (24, 96, 200), (112, 52, 190))
         right = f"WK {item.get('week')}" if item.get("week") else ""
-        logo = _provider_logo(str(item.get("provider") or ""))
+        logo = _provider_logo(provider, 10)
         title_x = 2
         if logo:
             img.paste(logo, (2, 1), logo)
@@ -1017,16 +1037,12 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     row_h = 19 if tall else 13
     for i, (side, value) in enumerate(rows):
         y = top + i * row_h
-        leading = value > (ap if i == 0 else hp)
-        color = d.GOLD if leading else d.WHITE
         pts_text = model.fmt_points(value * k)
         p_scale = 2 if font.text_width(pts_text, 2) <= w // 2 - 4 else 1
-        pts_w = d.big_number(img, pts_text, w - 2, y, color, p_scale, "right", shadow=False)
+        pts_w = d.big_number(img, pts_text, w - 2, y, d.WHITE, p_scale, "right", shadow=False)
         x = 2 + compact_offset
-        if i == 0 and m.get("mine"):
-            x += d.tag(img, x, y, "YOU", d.RARE) + 2
         name_w = w - pts_w - 6 - x
-        ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.GOLD if leading else d.WHITE, t)
+        ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.WHITE, t, bold=True)
         if side.get("record"):
             d.text(img, side["record"], x, y + 7, d.GRAY)
     if tall:
