@@ -300,6 +300,10 @@
         "enabled": false
     },
     "odds-ticker": {
-        "enabled": false
+        "enabled": false,
+        "display_options": {
+            "scroll_speed": 0.6,
+            "scroll_delay": 0.05
+        }
     }
 }
