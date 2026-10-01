@@ -342,17 +342,17 @@
             }
         ],
         "screens": {
-            "player_card": {"enabled": false},
-            "leaderboard": {"enabled": false},
-            "big_play": {"enabled": false},
-            "dud_alert": {"enabled": false},
-            "hot_pickups": {"enabled": false},
-            "position_kings": {"enabled": false},
-            "injury_report": {"enabled": false},
-            "watchlist": {"enabled": false},
-            "weekly_awards": {"enabled": false},
+            "player_card": {"enabled": true},
+            "leaderboard": {"enabled": true},
+            "big_play": {"enabled": true},
+            "dud_alert": {"enabled": true},
+            "hot_pickups": {"enabled": true},
+            "position_kings": {"enabled": true},
+            "injury_report": {"enabled": true},
+            "watchlist": {"enabled": true},
+            "weekly_awards": {"enabled": true},
             "league_matchup": {"enabled": true},
-            "season_race": {"enabled": false}
+            "season_race": {"enabled": true}
         }
     },
     "nfl-stat-leaders": {
