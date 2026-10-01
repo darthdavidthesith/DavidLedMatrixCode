@@ -269,6 +269,9 @@
                 "recent_display_mode": "scroll",
                 "upcoming_display_mode": "scroll"
             },
+            "scroll_settings": {
+                "scroll_speed": 12.0
+            },
             "favorite_teams": [],
             "filtering": {
                 "show_favorite_teams_only": false
