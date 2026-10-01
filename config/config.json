@@ -139,7 +139,7 @@
             "live_in_ticker": false,
             "live_weight": 3,
             "favorite_live_weight": 5,
-            "enabled": true,
+            "enabled": false,
             "scroll_speed": 50,
             "separator_width": 32,
             "plugin_order": [],
@@ -264,6 +264,11 @@
         },
         "nba": {
             "enabled": true,
+            "display_modes": {
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
             "favorite_teams": [],
             "filtering": {
                 "show_favorite_teams_only": false
@@ -280,6 +285,11 @@
         },
         "wnba": {
             "enabled": true,
+            "display_modes": {
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
             "favorite_teams": [],
             "filtering": {
                 "show_favorite_teams_only": false
@@ -296,12 +306,22 @@
         },
         "ncaam": {
             "enabled": true,
+            "display_modes": {
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
             "display_options": {
                 "show_odds": true
             }
         },
         "ncaaw": {
             "enabled": true,
+            "display_modes": {
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
             "display_options": {
                 "show_odds": true
             }
