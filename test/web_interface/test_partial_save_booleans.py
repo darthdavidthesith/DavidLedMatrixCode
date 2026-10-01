@@ -228,6 +228,19 @@ class TestTheRenderedForm:
 class TestTheFormEmitsTheMarker:
     """The fix only works if the rendered form actually reports its sections."""
 
+    def test_unset_boolean_uses_schema_default(self):
+        from jinja2 import Environment, FileSystemLoader
+
+        templates = PROJECT_ROOT / "web_interface" / "templates"
+        env = Environment(loader=FileSystemLoader(str(templates)))
+        render_field = env.get_template("v3/partials/plugin_config.html").module.render_field
+        schema = {"type": "boolean", "default": True}
+
+        default_html = render_field("switch_show_date", schema, None, "scroll_card", "basketball-scoreboard")
+        false_html = render_field("switch_show_date", schema, False, "scroll_card", "basketball-scoreboard")
+        assert 'value="true"' in default_html and "checked" in default_html
+        assert "checked" not in false_html
+
     def test_every_top_level_section_is_reported(self, tmp_path):
         import re
 
