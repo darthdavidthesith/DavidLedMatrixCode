@@ -89,5 +89,51 @@ class TestDottedLeagueKeys(unittest.TestCase):
         self.assertEqual(config["customization"]["text"]["font"], "small")
 
 
+ARRAY_TABLE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "leagues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "provider": {"type": "string"},
+                    "league_id": {"type": "string"},
+                    "espn_s2": {"type": "string", "x-secret": True},
+                },
+            },
+        }
+    },
+}
+
+
+class TestArrayTableDottedIndices(unittest.TestCase):
+    """Regression test: the array-table widget posts plain dotted paths like
+    "leagues.0.league_id". The schema lookup did not know how to step from an
+    array property into its item schema, so it returned None for every field
+    inside a row -- and the fallback parser then guessed a type instead: a
+    purely-numeric id string (e.g. a Sleeper league id) silently became an
+    int, and a blank optional string became None instead of "".
+    """
+
+    def test_schema_lookup_resolves_field_inside_array_row(self):
+        prop = _get_schema_property(ARRAY_TABLE_SCHEMA, "leagues.0.league_id")
+        self.assertIsNotNone(prop, "array row field path should resolve")
+        self.assertEqual(prop.get("type"), "string")
+
+    def test_numeric_looking_id_stays_a_string(self):
+        parsed = _parse_form_value_with_schema(
+            "1312129806040584192", "leagues.0.league_id", ARRAY_TABLE_SCHEMA
+        )
+        self.assertEqual(parsed, "1312129806040584192")
+        self.assertIsInstance(parsed, str)
+
+    def test_blank_optional_string_is_empty_not_none(self):
+        parsed = _parse_form_value_with_schema(
+            "", "leagues.0.espn_s2", ARRAY_TABLE_SCHEMA
+        )
+        self.assertEqual(parsed, "")
+
+
 if __name__ == "__main__":
     unittest.main()

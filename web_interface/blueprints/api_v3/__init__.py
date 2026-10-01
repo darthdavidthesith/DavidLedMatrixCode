@@ -788,6 +788,26 @@ def _get_schema_property(schema, key_path):
                     i = j
                     matched = True
                     break
+                # Navigate into an array-of-objects item schema. The array-table
+                # widget posts plain dotted names like "leagues.0.league_id" —
+                # the next path segment is a numeric row index, not a schema
+                # key, so it's consumed without being looked up. Without this,
+                # the lookup returned None for every field inside an array
+                # item, and the fallback parser guessed a type instead: a
+                # purely-numeric id string like a Sleeper league id silently
+                # became an int, and a blank optional string became None
+                # instead of "".
+                if (isinstance(prop, dict) and _schema_type_is(prop, 'array')
+                        and j < len(parts) and parts[j].isdigit()):
+                    items_schema = prop.get('items')
+                    if isinstance(items_schema, dict) and 'properties' in items_schema:
+                        if j + 1 == len(parts):
+                            # Path ends at the index itself (the whole row).
+                            return items_schema
+                        current = items_schema['properties']
+                        i = j + 1
+                        matched = True
+                        break
                 # Matched a non-object before consuming the path — can't go deeper.
                 return None
         if not matched:
