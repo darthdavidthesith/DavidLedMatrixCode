@@ -105,6 +105,11 @@ class Basketball(SportsCore):
                 self.logger.warning(f"Missing team abbreviation in event: {details['id']}")
                 return None
 
+            # ESPN posts unassigned bracket slots (e.g. playoffs) with TBD teams
+            if "TBD" in (str(details['home_abbr']).upper(), str(details['away_abbr']).upper()):
+                self.logger.debug(f"Skipping matchup with TBD team: {details['id']}")
+                return None
+
             self.logger.debug(f"Extracted: {details['away_abbr']}@{details['home_abbr']}, Status: {status['type']['name']}, Live: {details['is_live']}, Final: {details['is_final']}, Upcoming: {details['is_upcoming']}")
 
             return details

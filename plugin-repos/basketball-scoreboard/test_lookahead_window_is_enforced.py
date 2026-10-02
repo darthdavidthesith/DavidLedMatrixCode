@@ -28,11 +28,14 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 plugin_dir = Path(__file__).parent
 sys.path.insert(0, str(plugin_dir))
 
 import sports  # noqa: E402
+from basketball import Basketball  # noqa: E402
+from wnba_managers import WNBAUpcomingManager  # noqa: E402
 
 
 def _upcoming(gid, away, home, days_out):
@@ -132,6 +135,25 @@ def main():
     check("update() does not raise and uses the %d-day default"
           % sports._DEFAULT_LOOKAHEAD_DAYS,
           shown == ["edge", "near"], shown)
+
+    print("\nbasketball omits any matchup with a TBD team")
+    wnba = WNBAUpcomingManager.__new__(WNBAUpcomingManager)
+    wnba.logger = logging.getLogger("test")
+    status = {"type": {"state": "pre", "name": "STATUS_SCHEDULED"}, "period": 0}
+
+    def _extract(details):
+        details = dict(details, is_live=False, is_final=False, is_upcoming=True)
+        with patch.object(Basketball, "_extract_game_details_common",
+                          lambda self, event: (details, {}, {}, status, None)):
+            return wnba._extract_game_details({})
+
+    check("fully unassigned game is omitted",
+          _extract({"id": "401918296", "away_abbr": "TBD", "home_abbr": "TBD"}) is None)
+    check("known matchup with TBD time is kept",
+          _extract({"id": "401918295", "away_abbr": "NY", "home_abbr": "ATL",
+                    "game_time": "TBD"}) is not None)
+    check("partly assigned matchup is omitted",
+          _extract({"id": "other", "away_abbr": "TBD", "home_abbr": "ATL"}) is None)
 
     if failures:
         print("\n%d check(s) failed" % len(failures))
