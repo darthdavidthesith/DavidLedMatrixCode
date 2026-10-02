@@ -426,6 +426,25 @@ for _node in ast.walk(_tree):
 check("the live scroll refresh never updates a manager inline", not _inline,
       f"inline calls: {_inline}" if _inline else "")
 
+print("\ncontroller duration follows the rendered strip")
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+duration_plugin = Plugin.__new__(Plugin)
+duration_plugin.logger = MagicMock()
+duration_plugin.is_enabled = True
+duration_plugin.config = {"nba": {"mode_durations": {"upcoming_mode_duration": 30}}}
+duration_plugin._display_mode_settings = {"nba": {"upcoming": "scroll"}}
+duration_plugin._scroll_prepared = {"nba_upcoming_upcoming": True}
+scroll_display = SimpleNamespace(
+    has_cached_content=lambda: True,
+    get_current_leagues=lambda: ["nba"],
+    get_dynamic_duration=lambda: 403,
+)
+duration_plugin._scroll_manager = SimpleNamespace(get_scroll_display=lambda mode: scroll_display)
+check("NBA upcoming uses its 403s prepared strip, not a 30s slot",
+    duration_plugin.get_cycle_duration("nba_upcoming") == 403)
+
 
 print("\n" + "=" * 62)
 if FAILURES:

@@ -2808,6 +2808,13 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
                     league = "ncaam"
                 elif display_mode.startswith("ncaaw_"):
                     league = "ncaaw"
+
+        if (league and self._get_display_mode(league, mode_type) == 'scroll'
+                and self._scroll_manager
+                and self._scroll_prepared.get(f"{display_mode}_{mode_type}")):
+            scroll_display = self._scroll_manager.get_scroll_display(mode_type)
+            if scroll_display.has_cached_content() and scroll_display.get_current_leagues() == [league]:
+                return float(scroll_display.get_dynamic_duration())
         
         if league:
             effective_mode_duration = self._get_mode_duration(league, mode_type)
