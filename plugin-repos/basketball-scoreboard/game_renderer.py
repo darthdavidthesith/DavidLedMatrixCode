@@ -599,7 +599,8 @@ class GameRenderer(SportsGameRendererMixin):
         
         # Draw records, rankings, or tournament seeds if enabled
         show_tourney_seeds = game.get("is_tournament", False) and self._get_mm_setting(game, 'show_seeds')
-        if self.show_records or self.show_ranking or show_tourney_seeds:
+        display_options = self.config.get(league, {}).get('display_options', {})
+        if display_options.get('show_records', False) or display_options.get('show_ranking', False) or show_tourney_seeds:
             self._draw_records_or_rankings(draw_overlay, game)
 
         # Draw odds if available
@@ -889,17 +890,20 @@ class GameRenderer(SportsGameRendererMixin):
             if seed > 0:
                 return f"({seed})"
 
-        if self.show_ranking and self.show_records:
+        display_options = self.config.get((game or {}).get('league', 'nba'), {}).get('display_options', {})
+        show_ranking = display_options.get('show_ranking', False)
+        show_records = display_options.get('show_records', False)
+        if show_ranking and show_records:
             rank = self._team_rankings_cache.get(abbr, 0)
             if rank > 0:
                 return f"#{rank}"
             return record
-        elif self.show_ranking:
+        elif show_ranking:
             rank = self._team_rankings_cache.get(abbr, 0)
             if rank > 0:
                 return f"#{rank}"
             return ''
-        elif self.show_records:
+        elif show_records:
             return record
         return ''
 

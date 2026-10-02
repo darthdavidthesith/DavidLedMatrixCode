@@ -1,7 +1,7 @@
 {
   "id": "basketball-scoreboard",
   "name": "Basketball Scoreboard",
-  "version": "1.35.1",
+  "version": "1.35.2",
   "update_interval": 60,
   "description": "Live, recent, and upcoming basketball games across NBA, NCAA Men's, NCAA Women's, and WNBA with real-time scores, schedules, and March Madness tournament support",
   "author": "ChuckBuilds",
@@ -19,6 +19,12 @@
   "branch": "main",
   "plugin_path": "plugins/basketball-scoreboard",
   "versions": [
+    {
+      "version": "1.35.2",
+      "released": "2026-10-01",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Apply records and rankings per game's league in scroll cards, so a college team's rank cannot appear on an NBA or WNBA team sharing its abbreviation."
+    },
     {
       "version": "1.35.1",
       "released": "2026-09-25",

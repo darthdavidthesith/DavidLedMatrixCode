@@ -277,6 +277,7 @@
                 "show_favorite_teams_only": false
             },
             "display_options": {
+                "show_ranking": false,
                 "show_odds": true
             },
             "schedule_lookback_days": 2,
@@ -298,6 +299,7 @@
                 "show_favorite_teams_only": false
             },
             "display_options": {
+                "show_ranking": false,
                 "show_odds": true
             },
             "schedule_lookback_days": 2,
@@ -315,6 +317,7 @@
                 "upcoming_display_mode": "scroll"
             },
             "display_options": {
+                "show_ranking": true,
                 "show_odds": true
             }
         },
@@ -326,6 +329,7 @@
                 "upcoming_display_mode": "scroll"
             },
             "display_options": {
+                "show_ranking": true,
                 "show_odds": true
             }
         }

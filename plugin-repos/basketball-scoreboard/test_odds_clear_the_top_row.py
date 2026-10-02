@@ -49,7 +49,22 @@ def check(case, passed):
 def main():
     os.chdir(str(CORE))
     from PIL import Image, ImageDraw
+    from game_renderer import GameRenderer
     import sports
+
+    renderer = GameRenderer.__new__(GameRenderer)
+    renderer.config = {
+      "nba": {"display_options": {"show_ranking": False}},
+      "wnba": {"display_options": {"show_ranking": False}},
+      "ncaam": {"display_options": {"show_ranking": True}},
+    }
+    renderer._team_rankings_cache = {"MIA": 24}
+    check("college Miami rank does not appear on NBA Heat card",
+        renderer._get_team_display_text("MIA", "", {"league": "nba"}) == "")
+    check("college Miami rank remains on college card",
+        renderer._get_team_display_text("MIA", "", {"league": "ncaam"}) == "#24")
+    check("a pro WNBA card ignores the shared college rank cache",
+        renderer._get_team_display_text("MIA", "", {"league": "wnba"}) == "")
 
     class Bug(sports.SportsCore):
         def __init__(self, width, height):
