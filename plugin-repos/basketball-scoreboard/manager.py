@@ -3067,7 +3067,7 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
             return True
         # Pass the current active display mode to evaluate completion for the right mode
         self._evaluate_dynamic_cycle_completion(display_mode=self._current_active_display_mode)
-        self.logger.info(f"is_cycle_complete() called: display_mode={self._current_active_display_mode}, returning {self._dynamic_cycle_complete}")
+        self.logger.debug(f"is_cycle_complete() called: display_mode={self._current_active_display_mode}, returning {self._dynamic_cycle_complete}")
         return self._dynamic_cycle_complete
 
     def _dynamic_feature_enabled(self) -> bool:
