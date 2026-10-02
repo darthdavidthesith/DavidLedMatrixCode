@@ -220,6 +220,8 @@ class LogoDownloader:
         """
         # Handle special characters that can cause filesystem issues
         normalized = abbreviation.upper()
+        if normalized == 'CON':
+            return 'CONN'
         
         # Replace problematic characters with safe alternatives
         normalized = normalized.replace('&', 'AND')

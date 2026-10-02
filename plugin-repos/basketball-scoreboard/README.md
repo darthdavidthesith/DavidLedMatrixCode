@@ -554,10 +554,13 @@ live but not *whose*.
 `NYK`, `IND`, `DET`, `TOR`, `CHI`, `CLE`, `ORL`, `WAS`, `HOU`, `SAS`, `MIN`,
 `POR`, `SAC`, `LAC`, `MEM`, `DAL`, `PHX`, `UTA`, `OKC`, `NOP`.
 
-**WNBA:** `LVA` (Las Vegas Aces), `NYL` (New York Liberty), `CHI` (Chicago Sky),
-`CONN` (Connecticut Sun), `DAL` (Dallas Wings), `ATL` (Atlanta Dream), `IND`
-(Indiana Fever), `MIN` (Minnesota Lynx), `PHX` (Phoenix Mercury), `SEA` (Seattle
-Storm), `WAS` (Washington Mystics), `LAC` (Los Angeles Sparks).
+**WNBA:** `ATL` (Atlanta Dream), `CHI` (Chicago Sky), `CON` (Connecticut Sun),
+`DAL` (Dallas Wings), `GS` (Golden State Valkyries), `IND` (Indiana Fever),
+`LA` (Los Angeles Sparks), `LV` (Las Vegas Aces), `MIN` (Minnesota Lynx),
+`NY` (New York Liberty), `PHX` (Phoenix Mercury), `POR` (Portland Fire),
+`SEA` (Seattle Storm), `TOR` (Toronto Tempo), `WSH` (Washington Mystics).
+Connecticut keeps ESPN's `CON` code, but its logo uses `CONN.png` for Windows
+compatibility.
 
 **NCAA Men's:** `DUKE`, `UNC`, `KANSAS`, `KENTUCKY`, `UCLA`, `ARIZONA`,
 `GONZAGA`, `BAYLOR`, `VILLANOVA`, `MICHIGAN`, `OHIOST`, `FLORIDA`, `WISCONSIN`,

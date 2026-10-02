@@ -57,6 +57,11 @@ class TestNormalizeAbbreviation:
         result = LogoDownloader.normalize_abbreviation("")
         assert result == ""
 
+    def test_connecticut_uses_windows_safe_filename(self):
+        assert LogoDownloader.normalize_abbreviation("CON") == "CONN"
+        assert LogoDownloader.get_logo_filename_variations("CON") == [
+            "CON.png", "CONN.png"]
+
 
 # ---------------------------------------------------------------------------
 # get_logo_filename_variations
