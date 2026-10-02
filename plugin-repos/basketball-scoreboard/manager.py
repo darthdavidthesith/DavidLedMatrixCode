@@ -2231,6 +2231,15 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
                 self._scroll_prepared[scroll_key] = False
                 self._scroll_active[scroll_key] = False
                 return False
+
+            if league == 'wnba':
+                for position, game in enumerate(games, start=1):
+                    self.logger.info(
+                        "[Basketball Scroll] WNBA %s game %d/%d id=%s %s@%s start=%s status=%s",
+                        mode_type, position, len(games), game.get('id'),
+                        game.get('away_abbr'), game.get('home_abbr'),
+                        game.get('start_time_utc'), game.get('status_text'),
+                    )
             
             # Add league info to each game
             for game in games:
@@ -2315,14 +2324,14 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         
         # Create display mode name for tracking
         display_mode = f"{league}_{mode_type}"
+
+        # Set display context for dynamic duration tracking
+        self._current_display_league = league
+        self._current_display_mode_type = mode_type
         
         # Check if this league uses scroll mode
         if self._should_use_scroll_mode(league, mode_type):
             return self._display_scroll_mode(display_mode, league, mode_type, force_clear)
-        
-        # Set display context for dynamic duration tracking
-        self._current_display_league = league
-        self._current_display_mode_type = mode_type
         
         # Try to display content from this league's manager (switch mode)
         success, _ = self._try_manager_display(

@@ -1,7 +1,7 @@
 {
   "id": "basketball-scoreboard",
   "name": "Basketball Scoreboard",
-  "version": "1.35.3",
+  "version": "1.35.5",
   "update_interval": 60,
   "description": "Live, recent, and upcoming basketball games across NBA, NCAA Men's, NCAA Women's, and WNBA with real-time scores, schedules, and March Madness tournament support",
   "author": "ChuckBuilds",
@@ -19,6 +19,18 @@
   "branch": "main",
   "plugin_path": "plugins/basketball-scoreboard",
   "versions": [
+    {
+      "version": "1.35.5",
+      "released": "2026-10-01",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Log each WNBA game when a scroll strip is prepared, including event ID, teams, start time, and status to diagnose TBD matchups."
+    },
+    {
+      "version": "1.35.4",
+      "released": "2026-10-01",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Set league/mode context before dispatching basketball scrolls so the controller honors dynamic duration and does not stop long NBA or WNBA strips after 30 seconds."
+    },
     {
       "version": "1.35.3",
       "released": "2026-10-01",

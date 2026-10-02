@@ -445,6 +445,17 @@ duration_plugin._scroll_manager = SimpleNamespace(get_scroll_display=lambda mode
 check("NBA upcoming uses its 403s prepared strip, not a 30s slot",
     duration_plugin.get_cycle_duration("nba_upcoming") == 403)
 
+duration_plugin.config = {"nba": {"dynamic_duration": {
+    "modes": {"upcoming": {"enabled": True}}}}}
+duration_plugin._league_registry = {"nba": {"enabled": True}}
+duration_plugin._current_display_league = None
+duration_plugin._current_display_mode_type = None
+duration_plugin._get_league_manager_for_mode = lambda league, mode: object()
+duration_plugin._should_use_scroll_mode = lambda league, mode: True
+duration_plugin._display_scroll_mode = lambda *args: duration_plugin.supports_dynamic_duration()
+check("scroll dispatch sets league context before dynamic-duration check",
+    duration_plugin._display_league_mode("nba", "upcoming", True))
+
 
 print("\n" + "=" * 62)
 if FAILURES:
