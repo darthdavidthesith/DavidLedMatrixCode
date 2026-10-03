@@ -125,7 +125,7 @@
             "rp1_rio": 0
         },
         "dynamic_duration": {
-            "max_duration_seconds": 600
+            "max_duration_seconds": 720
         },
         "double_sided": {
             "enabled": false,
@@ -400,6 +400,8 @@
     "odds-ticker": {
         "enabled": false,
         "display_options": {
+            "dynamic_duration": true,
+            "max_duration": 720,
             "scroll_speed": 0.6,
             "scroll_delay": 0.05
         }

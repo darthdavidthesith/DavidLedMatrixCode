@@ -642,7 +642,8 @@ class BasePlugin(ABC):
 
         Returns:
             Positive float value for explicit cap, or None to indicate no
-            additional cap beyond global defaults.
+            additional cap beyond global defaults. Positive infinity requests
+            completion-based rotation without a global time ceiling.
         """
         config = self._get_dynamic_duration_config()
         cap_value = config.get("max_duration_seconds")

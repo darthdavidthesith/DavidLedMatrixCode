@@ -57,9 +57,9 @@ level is **rejected**, not ignored. The full schema is
 | Key | Default | Notes |
 |---|---|---|
 | `display_options.display_duration` | `30` | Duration in seconds to display the odds ticker (used when dynamic_duration is disabled) (10–300). |
-| `display_options.dynamic_duration` | `true` | Enable dynamic duration based on content width. Automatically adjusts display time based on how much content there is. |
+| `display_options.dynamic_duration` | `true` | Show a complete scroll pass before rotating, regardless of content length. Live refreshes preserve scroll progress. Disable to use a fixed display duration. |
 | `display_options.min_duration` | `30` | Minimum display duration in seconds when dynamic duration is enabled (10–300). |
-| `display_options.max_duration` | `300` | Maximum display duration in seconds when dynamic duration is enabled (30–600). |
+| `display_options.max_duration` | `300` | Legacy setting retained for compatibility; ignored during dynamic full-pass rotation. |
 | `display_options.duration_buffer` | `0.1` | Extra buffer time added to calculated duration (as percentage, 0.1 = 10%) (0.01–1.0). |
 | `display_options.scroll_speed` | `1.0` | Pixels per scroll step (0.5–5.0). With `scroll_delay` it sets the speed: `scroll_speed / scroll_delay` pixels per second (50 by default), snapped to the nearest speed the panel can move in whole pixels. Takes effect on save, no restart needed. |
 | `display_options.scroll_delay` | `0.02` | Seconds per scroll step (0.001–0.1); lower is faster. See `scroll_speed`. |

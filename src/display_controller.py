@@ -2358,7 +2358,9 @@ class DisplayController:
                             for cap in (plugin_cap, global_cap)
                             if cap is not None and cap > 0
                         ]
-                        if cap_candidates:
+                        if plugin_cap == float('inf'):
+                            chosen_cap = plugin_cap
+                        elif cap_candidates:
                             chosen_cap = min(cap_candidates)
                         else:
                             chosen_cap = DEFAULT_DYNAMIC_DURATION_CAP

@@ -27,7 +27,7 @@
           "x-advanced": true,
           "type": "boolean",
           "default": true,
-          "description": "Enable dynamic duration based on content width. Automatically adjusts display time based on how much content there is"
+          "description": "Show a complete scroll pass before rotating, regardless of content length. Disable to use display_duration instead"
         },
         "min_duration": {
           "x-advanced": true,
@@ -39,11 +39,12 @@
         },
         "max_duration": {
           "x-advanced": true,
+          "x-display": "hidden",
           "type": "integer",
           "default": 300,
           "minimum": 30,
-          "maximum": 600,
-          "description": "Maximum display duration in seconds when dynamic duration is enabled"
+          "maximum": 720,
+          "description": "Legacy setting, retained for compatibility. Dynamic duration now waits for a complete scroll pass and ignores this limit"
         },
         "duration_buffer": {
           "x-advanced": true,

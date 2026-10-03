@@ -318,7 +318,7 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
         self.scroll_helper.set_dynamic_duration_settings(
             enabled=self.dynamic_duration_enabled,
             min_duration=self.min_duration,
-            max_duration=self.max_duration,
+            max_duration=0 if self.dynamic_duration_enabled else self.max_duration,
             buffer=self.duration_buffer
         )
         
@@ -2505,35 +2505,14 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
         return self.dynamic_duration_enabled
 
     def is_cycle_complete(self) -> bool:
-        """
-        Indicate whether the plugin has completed a full display cycle.
-
-        For scrolling content, the cycle is complete when:
-        - Dynamic duration is enabled AND elapsed time exceeds dynamic duration
-        - OR scroll is complete (all content has been shown) when loop=False
-
-        Returns:
-            True if the cycle is complete, False otherwise
-        """
-        # If dynamic duration is not enabled, always return True (use fixed duration)
+        """Finish a dynamic cycle only after the entire strip has scrolled."""
         if not self.supports_dynamic_duration():
             return True
+        return bool(self.scroll_helper and self.scroll_helper.is_scroll_complete())
 
-        # Check if dynamic duration has been exceeded (regardless of loop setting)
-        if self._display_start_time is not None and self.dynamic_duration > 0:
-            elapsed_time = time.time() - self._display_start_time
-            if elapsed_time >= self.dynamic_duration:
-                logger.debug(f"Cycle complete: elapsed {elapsed_time:.1f}s >= dynamic duration {self.dynamic_duration}s")
-                return True
-
-        # If not looping, also check if scroll is complete
-        if not self.loop:
-            if hasattr(self, 'scroll_helper') and self.scroll_helper:
-                if self.scroll_helper.is_scroll_complete():
-                    logger.debug("Cycle complete: scroll finished (non-looping mode)")
-                    return True
-
-        return False
+    def get_dynamic_duration_cap(self) -> float:
+        """Request completion-based rotation without a controller time ceiling."""
+        return float('inf')
 
     def reset_cycle_state(self) -> None:
         """
@@ -2585,7 +2564,7 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
         self.scroll_helper.set_dynamic_duration_settings(
             enabled=self.dynamic_duration_enabled,
             min_duration=self.min_duration,
-            max_duration=self.max_duration,
+            max_duration=0 if self.dynamic_duration_enabled else self.max_duration,
             buffer=self.duration_buffer,
         )
 
@@ -2657,10 +2636,10 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
         if hasattr(self.display_manager, 'is_currently_scrolling') and self.display_manager.is_currently_scrolling():
             logger.debug("Odds ticker is currently scrolling, deferring update")
             if hasattr(self.display_manager, 'defer_update'):
-                self.display_manager.defer_update(self._perform_update, priority=1)
+                self.display_manager.defer_update(self._deferred_refresh, priority=1)
             return
             
-        self._perform_update()
+        self._perform_update(preserve_scroll=self.dynamic_duration_enabled and self._display_start_time is not None)
 
     def _has_live_games(self) -> bool:
         """Check live status via games_data first, then an independently-refreshed
@@ -2810,8 +2789,10 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
 
                 # Save scroll position if preserving
                 saved_scroll_position = None
+                saved_scroll_distance = None
                 if preserve_scroll and hasattr(self, 'scroll_helper'):
                     saved_scroll_position = self.scroll_helper.scroll_position
+                    saved_scroll_distance = self.scroll_helper.total_distance_scrolled
                     logger.debug(f"Preserving scroll position: {saved_scroll_position}")
 
                 self.games_data = self._fetch_upcoming_games()
@@ -2838,6 +2819,8 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
                 if preserve_scroll and saved_scroll_position is not None and hasattr(self, 'scroll_helper'):
                     max_scroll = max(0, self.scroll_helper.total_scroll_width)
                     self.scroll_helper.scroll_position = min(saved_scroll_position, max_scroll)
+                    self.scroll_helper.total_distance_scrolled = min(saved_scroll_distance, max_scroll)
+                    self.scroll_helper.scroll_complete = self.scroll_helper.total_distance_scrolled >= max_scroll
                     logger.debug(f"Restored scroll position: {self.scroll_helper.scroll_position} (max: {max_scroll})")
 
                 # Log update interval status
@@ -2925,7 +2908,7 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
             # Check if the display start time is too old (more than 2x the dynamic duration)
             current_time = time.time()
             elapsed_time = current_time - self._display_start_time
-            if elapsed_time > (self.dynamic_duration * 2):
+            if not self.dynamic_duration_enabled and elapsed_time > (self.dynamic_duration * 2):
                 logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
                 self._display_start_time = current_time
                 self.scroll_helper.reset_scroll()
@@ -3176,14 +3159,14 @@ class OddsTickerPlugin(BasePlugin, BaseOddsManager):
     def get_display_duration(self) -> float:
         """Seconds this ticker stays on screen.
 
-        With dynamic_duration on, the duration computed from the strip width.
+        With dynamic_duration on, the minimum hold before scroll completion.
         With it off, display_options.display_duration, as the schema and README
         document: core uses this value as the whole slot when dynamic duration
         is disabled, and it used to return the dynamic duration either way, so
         display_duration was read and never applied.
         """
         if self.supports_dynamic_duration():
-            return self.get_dynamic_duration()
+            return self.min_duration
         try:
             duration = float(self.display_duration)
         except (TypeError, ValueError):

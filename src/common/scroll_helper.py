@@ -603,7 +603,7 @@ class ScrollHelper:
             # Apply min/max limits
             if calculated_duration < self.min_duration:
                 self.calculated_duration = self.min_duration
-            elif calculated_duration > self.max_duration:
+            elif self.max_duration > 0 and calculated_duration > self.max_duration:
                 self.calculated_duration = self.max_duration
             else:
                 self.calculated_duration = calculated_duration
@@ -958,7 +958,7 @@ class ScrollHelper:
         """
         self.dynamic_duration_enabled = enabled
         self.min_duration = max(10, min_duration)
-        self.max_duration = max(self.min_duration, max_duration)
+        self.max_duration = 0 if max_duration == 0 else max(self.min_duration, max_duration)
         self.duration_buffer = max(0.0, min(1.0, buffer))
         
         self.logger.debug(f"Dynamic duration settings: enabled={enabled}, "

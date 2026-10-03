@@ -245,6 +245,16 @@ class TestCalculateDynamicDuration:
         assert isinstance(result, int)
         assert result > 0
 
+    def test_zero_maximum_allows_full_duration_on_busy_days(self, helper):
+        helper.set_dynamic_duration_settings(enabled=True, min_duration=30, max_duration=0)
+        helper.frame_based_scrolling = False
+        helper.scroll_speed = 12.5
+        helper.create_scrolling_image([_make_image(width=20000)])
+        expected = int((helper.total_scroll_width + DISPLAY_W) / 12.5 * 1.1)
+        assert helper.max_duration == 0
+        assert helper.calculate_dynamic_duration() == expected
+        assert expected > 720
+
 
 # ---------------------------------------------------------------------------
 # set_* configuration methods
