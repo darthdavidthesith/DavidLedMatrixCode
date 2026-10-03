@@ -101,6 +101,14 @@ def test_busts_skip_players_who_did_not_play():
     assert model.busts({"x": idle}, "ppr", 12.0) == []
 
 
+@pytest.mark.parametrize("fmt", ["ppr", "half_ppr", "standard"])
+@pytest.mark.parametrize("actual,eligible", [(13.0, False), (8.01, False), (8.0, True), (7.99, True), (0.0, True)])
+def test_busts_require_half_projection_or_less(fmt, actual, eligible):
+    candidate = player(pts=actual, proj=16.0)
+    result = model.busts({"p1": candidate}, fmt, final_teams={"SEA"})
+    assert bool(result) is eligible
+
+
 def test_booms_rank_by_margin_over_projection():
     top = model.booms(WEEK, "ppr", 1)[0]
     assert top["player"]["id"] == JSN and top["gain"] == pytest.approx(22.95)

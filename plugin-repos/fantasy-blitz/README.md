@@ -24,7 +24,7 @@ needs an API key.
 | Player card | A top scorer's week as a trading card: photo, points, the stat line behind them, and an XP bar against their projection. The frame color is the card's rarity: gold (Legendary, 30+ points), purple (Epic, 20+), blue (Rare, 12+) | All week |
 | Leaderboard | The top ten scorers, gold, silver and bronze coins for the top three | All week |
 | Big play | A burst when a player gains 6+ points between two updates, with ESPN's description ("82-YD TD CATCH") and confetti for touchdowns. With live priority on, it interrupts the rotation for a few seconds. Restored and queued alerts are discarded once the player's game is no longer live | While the player's game is live |
-| Dud alert | The players who fell furthest below a projection of 12+. A player who got hurt early says LEFT EARLY instead of taking the blame | Once their game is over |
+| Dud alert | Players projected for 12+ points who scored half their projection or less, ranked by largest point shortfall. A player who got hurt early says LEFT EARLY instead of taking the blame | Once their game is over |
 | Hot pickups | The free agents added most on Sleeper in the last 24 hours, with a heat bar; a second page shows the most dropped | Between games |
 | Position kings | The top scorer at each position | Game days and the recap |
 | Injury report | Injury tags (Q, D, O, IR) on the players who matter most this week | Tuesday until kickoff |

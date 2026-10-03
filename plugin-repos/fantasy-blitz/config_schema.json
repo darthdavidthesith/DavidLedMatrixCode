@@ -310,7 +310,7 @@
           "minimum": 0.0,
           "maximum": 60.0,
           "x-advanced": true,
-          "description": "Only players projected for at least this many points can be a dud"
+          "description": "Only players projected for at least this many points can be a dud; actual points must also be half the projection or less"
         },
         "tier_thresholds": {
           "type": "object",

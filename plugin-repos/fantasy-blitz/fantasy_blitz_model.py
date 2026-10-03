@@ -319,7 +319,8 @@ def busts(players: Dict[str, Dict[str, Any]], fmt: str, min_projection: float = 
 
     Only players who took the field count (a healthy scratch is not a bust),
     and when ``final_teams`` is given only players whose game is over -- the
-    board never calls a bust at halftime. Each entry is
+    board never calls a bust at halftime. Actual points must be half the
+    projection or less. Each entry is
     ``{"player", "proj", "pts", "miss", "left_early"}``.
     """
     final = set(final_teams) if final_teams is not None else None
@@ -336,7 +337,7 @@ def busts(players: Dict[str, Dict[str, Any]], fmt: str, min_projection: float = 
         if final is not None and p.get("team") not in final:
             continue
         miss = proj - pts
-        if miss <= 0:
+        if miss <= 0 or pts > proj * 0.5:
             continue
         out.append({"player": p, "proj": proj, "pts": pts, "miss": miss,
                     "left_early": left_early(p)})
