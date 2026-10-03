@@ -372,6 +372,7 @@ class FantasyBlitzPlugin(BasePlugin):
         }, now)
 
     def _detect_big_plays(self, now: float, stats_age: Optional[float]) -> None:
+        self._prune_live_alerts()
         if not self.results_week or self.results_week != self.week:
             return
         week_id = (self.season, self.results_week)
@@ -385,10 +386,7 @@ class FantasyBlitzPlugin(BasePlugin):
             return  # same stats as last time; nothing can have changed
         self._stats_stamp = stamp
         states = model.teams_by_state(self.games)
-        for abbr in states["post"]:
-            self._final_seen.setdefault(abbr, now)
-        recent_final = {abbr for abbr, seen in self._final_seen.items() if now - seen < 1800}
-        active = states["in"] | (states["post"] & recent_final)
+        active = states["in"]
         snapshot = model.points_snapshot(self.players, self.scoring)
         alerts = model.detect_big_plays(
             self._snapshot, self.players, self.scoring, self.big_play_min, active,
@@ -401,6 +399,19 @@ class FantasyBlitzPlugin(BasePlugin):
                 f"{a['name']} +{a['gain']:.1f}" for a in alerts[:added]))
         self._snapshot = snapshot
         self._save_bigplay(now)
+
+    def _prune_live_alerts(self) -> None:
+        """Discard queued and displayed alerts for teams without a live game."""
+        active = model.teams_by_state(self.games)["in"]
+        pending_count = len(self.alerts.pending)
+        self.alerts.pending = [alert for alert in self.alerts.pending if alert.get("team") in active]
+        removed = pending_count - len(self.alerts.pending)
+        if self.alerts.current is not None and self.alerts.current.get("team") not in active:
+            self.alerts.finish()
+            removed += 1
+        if removed:
+            self.logger.info("Discarded %d non-live big-play alerts (phase=%s, live teams=%s)",
+                             removed, self.phase, sorted(active))
 
     def _describe(self, alert: Dict[str, Any]) -> None:
         team = alert.get("team")
@@ -739,6 +750,7 @@ class FantasyBlitzPlugin(BasePlugin):
         return True
 
     def _display_alert(self, now: float, force_clear: bool) -> bool:
+        self._prune_live_alerts()
         if self.phase == model.PHASE_IDLE:
             return False
         # Which alerts were shown is persisted by the next update(), not here:
@@ -783,6 +795,7 @@ class FantasyBlitzPlugin(BasePlugin):
 
     def has_live_content(self) -> bool:
         """A big play is waiting (and past the spoiler delay). Attribute reads only."""
+        self._prune_live_alerts()
         if not self.has_live_priority() or self.phase == model.PHASE_IDLE:
             return False
         return self.alerts.can_show(time.time(), self.spoiler_delay)

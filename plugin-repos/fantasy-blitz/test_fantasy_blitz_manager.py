@@ -81,6 +81,9 @@ def test_recap_week_draws_every_screen(frozen):
         "watchlist", "weekly_awards", "league_matchup", "season_race"}
     for mode in plugin.modes:
         display.image.paste((0, 0, 0), (0, 0, 128, 64))
+        if mode == "fantasy_live":
+            assert plugin.display(force_clear=True, display_mode=mode) is False
+            continue
         assert plugin.display(force_clear=True, display_mode=mode) is True, mode
         assert display.image.getbbox() is not None, f"{mode} drew nothing"
 
@@ -92,7 +95,7 @@ def test_every_mode_is_registered_up_front(frozen):
 
 
 def test_big_play_takes_live_priority_then_steps_aside(frozen):
-    plugin, _, _ = make_plugin()
+    plugin, _, _ = make_plugin(fixture=_live_alert_fixture())
     plugin.update()
     assert plugin.has_live_priority() and plugin.has_live_content()
     assert plugin.display(force_clear=True, display_mode="fantasy_live") is True
@@ -103,7 +106,7 @@ def test_big_play_takes_live_priority_then_steps_aside(frozen):
 
 
 def test_live_priority_can_be_turned_off(frozen):
-    plugin, _, _ = make_plugin({"live_priority": False})
+    plugin, _, _ = make_plugin({"live_priority": False}, fixture=_live_alert_fixture())
     plugin.update()
     assert not plugin.has_live_content()
     assert plugin.display(force_clear=True, display_mode="fantasy_live") is True, "still shown in rotation"
@@ -127,6 +130,61 @@ def _live_fixture(jsn_points):
     return fixture, sea
 
 
+def _live_alert_fixture():
+    fixture, _ = _live_fixture(27.3)
+    fixture[f"{ID}:bigplay"] = copy.deepcopy(FIXTURE[f"{ID}:bigplay"])
+    return fixture
+
+
+def test_restored_alert_does_not_claim_live_priority_without_live_games(frozen):
+    plugin, _, _ = make_plugin()
+    assert plugin.alerts.pending
+    plugin.update()
+    assert not plugin.alerts.pending
+    assert not plugin.has_live_content()
+    assert plugin.display(force_clear=True, display_mode="fantasy_live") is False
+
+
+def test_finished_game_stats_do_not_generate_new_live_alerts(frozen):
+    fixture, sea = _live_fixture(27.3)
+    sea["state"] = "post"
+    plugin, _, cache = make_plugin(fixture=fixture)
+    plugin.update()
+    frozen.tick(61)
+    stats = cache.get(f"{ID}:stats:2026:2")
+    stats["data"]["9488"]["pts"] = {"ppr": 42.5, "half_ppr": 38.0, "standard": 33.5}
+    stats["fetched_at"] += 61
+    cache.set(f"{ID}:stats:2026:2", stats)
+    plugin.update()
+    assert not plugin.alerts.pending
+    assert not plugin.has_live_content()
+
+
+def test_alert_stops_when_its_game_finishes(frozen):
+    plugin, _, _ = make_plugin(fixture=_live_alert_fixture())
+    plugin.update()
+    assert plugin.display(force_clear=True, display_mode="fantasy_live") is True
+    for game in plugin.games:
+        game["state"] = "post"
+    assert not plugin.has_live_content()
+    assert plugin.alerts.current is None
+    assert plugin.display(display_mode="fantasy_live") is False
+
+
+def test_unrelated_live_game_does_not_keep_finished_team_alerts(frozen):
+    fixture = _live_alert_fixture()
+    games = fixture[f"{ID}:games:2026:2"]["data"]
+    for game in games:
+        game["state"] = "post"
+    other = next(game for game in games if "SEA" not in (game["home"], game["away"]))
+    other["state"] = "in"
+    plugin, _, _ = make_plugin(fixture=fixture)
+    plugin.update()
+    assert plugin.phase == "live"
+    assert not plugin.alerts.pending
+    assert not plugin.has_live_content()
+
+
 def test_a_points_jump_during_a_live_game_becomes_an_alert(frozen):
     fixture, _ = _live_fixture(27.3)
     plugin, _, cache = make_plugin(fixture=fixture)
@@ -146,7 +204,7 @@ def test_a_points_jump_during_a_live_game_becomes_an_alert(frozen):
 
 
 def test_spoiler_delay_holds_the_alert(frozen):
-    plugin, _, _ = make_plugin({"spoiler_delay_seconds": 90})
+    plugin, _, _ = make_plugin({"spoiler_delay_seconds": 90}, fixture=_live_alert_fixture())
     plugin.update()
     assert not plugin.has_live_content(), "detected 30 s ago; the delay is 90 s"
     frozen.tick(61)
@@ -256,6 +314,9 @@ def test_every_panel_size_draws(frozen):
         plugin, display, _ = make_plugin(size=size)
         plugin.update()
         for mode in plugin.modes:
+            if mode == "fantasy_live":
+                assert plugin.display(force_clear=True, display_mode=mode) is False
+                continue
             assert plugin.display(force_clear=True, display_mode=mode) is True, (size, mode)
 
 
