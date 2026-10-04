@@ -340,17 +340,17 @@
                 "favorite_live_boost": 2
             },
             "dynamic_duration": {
-                "enabled": false,
+                "enabled": true,
                 "min_duration_seconds": 30.0,
                 "modes": {
                     "live": {
-                        "enabled": false
+                        "enabled": true
                     },
                     "recent": {
-                        "enabled": false
+                        "enabled": true
                     },
                     "upcoming": {
-                        "enabled": false
+                        "enabled": true
                     }
                 }
             }
