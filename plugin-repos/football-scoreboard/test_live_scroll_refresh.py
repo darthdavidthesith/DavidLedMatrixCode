@@ -23,6 +23,11 @@ Run: <core-venv>/bin/python plugins/football-scoreboard/test_live_scroll_refresh
 
 import os
 import sys
+import logging
+from contextlib import nullcontext
+from unittest.mock import Mock
+
+import pytest
 
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 if PLUGIN_DIR not in sys.path:
@@ -37,6 +42,78 @@ def check(label, ok, detail=""):
     print(f"  {'PASS' if ok else 'FAIL'}  {label}" + (f"  [{detail}]" if detail else ""))
     if not ok:
         FAILURES.append(label)
+
+
+def _scroll_cycle_probe(combined, dynamic=True):
+    plugin = Plugin.__new__(Plugin)
+    plugin.logger = logging.getLogger("football_scroll_cycle_test")
+    plugin.supports_dynamic_duration = Mock(return_value=dynamic)
+    plugin._scroll_manager = Mock()
+    plugin._scroll_manager.is_complete.return_value = False
+    plugin._scroll_manager.prepare_and_display.return_value = True
+    plugin._scroll_prepared = {}
+    plugin._scroll_active = {}
+    plugin._scroll_active_league = {}
+    plugin._dynamic_cycle_complete = False
+    plugin.nfl_enabled = True
+    plugin.ncaa_fb_enabled = False
+    plugin.nfl_live_priority = False
+    plugin.ncaa_fb_live_priority = False
+    plugin._install_ready_live_scroll_rebuilds = Mock()
+    plugin._refresh_live_scroll_managers = Mock()
+    plugin._live_scroll_needs_rebuild = Mock(return_value=False)
+    plugin._live_scroll_fingerprint = Mock(return_value=())
+    plugin._note_live_scroll_built = Mock()
+    plugin._ensure_manager_updated = Mock()
+    plugin._get_manager_for_league_mode = Mock(return_value=Mock())
+    plugin._get_league_manager_for_mode = Mock(return_value=Mock())
+    games = [{"id": "final", "is_final": True}]
+    plugin._get_games_from_manager = Mock(return_value=games)
+    plugin._collect_games_for_scroll = Mock(return_value=(games, ["nfl"]))
+    plugin._get_rankings_cache = Mock(return_value={})
+    plugin._preserving_scroll_position = lambda *args: nullcontext()
+
+    def complete_frame(*args):
+        plugin._scroll_manager.is_complete.return_value = True
+        return True
+
+    plugin._scroll_manager.display_frame.side_effect = complete_frame
+    if combined:
+        display = lambda clear: plugin._display_scroll_mode("football_recent", "recent", clear)
+        key = "football_recent_recent"
+    else:
+        display = lambda clear: plugin._display_league_scroll_mode("nfl", "recent", clear)
+        key = "recent"
+    return plugin, display, key
+
+
+@pytest.mark.parametrize("combined", [False, True])
+def test_completed_dynamic_scroll_does_not_restart_during_minimum_hold(combined):
+    plugin, display, key = _scroll_cycle_probe(combined)
+    assert display(True)
+    assert plugin._dynamic_cycle_complete
+    assert plugin._scroll_prepared[key]
+    for _ in range(5):
+        assert display(False)
+        assert plugin._scroll_manager.is_complete("recent")
+    assert plugin._scroll_manager.prepare_and_display.call_count == 1
+
+
+@pytest.mark.parametrize("combined", [False, True])
+def test_new_mode_entry_reprepares_completed_scroll(combined):
+    plugin, display, _ = _scroll_cycle_probe(combined)
+    assert display(True)
+    assert display(True)
+    assert plugin._scroll_manager.prepare_and_display.call_count == 2
+
+
+@pytest.mark.parametrize("combined", [False, True])
+def test_fixed_duration_scroll_still_repeats(combined):
+    plugin, display, key = _scroll_cycle_probe(combined, dynamic=False)
+    assert display(True)
+    assert not plugin._scroll_prepared[key]
+    assert display(False)
+    assert plugin._scroll_manager.prepare_and_display.call_count == 2
 
 
 def game(gid="1", home="2", away="1", **extra):

@@ -1817,6 +1817,13 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         
         # Check if we need to prepare new scroll content
         scroll_key = f"{display_mode}_{mode_type}"
+        if force_clear:
+            self._scroll_prepared[scroll_key] = False
+            self._scroll_active[scroll_key] = False
+        elif (self.supports_dynamic_duration()
+              and self._scroll_prepared.get(scroll_key, False)
+              and self._scroll_manager.is_complete(mode_type)):
+            return True
         
         # A live card that changed since the strip was built has to rebuild
         # it now, not when the cycle ends -- see _live_scroll_needs_rebuild().
@@ -1894,8 +1901,9 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
                 if self._scroll_manager.is_complete(mode_type):
                     self.logger.info(f"[Football Scroll] Cycle complete for {display_mode}")
                     # Reset for next cycle
-                    self._scroll_prepared[scroll_key] = False
-                    self._scroll_active[scroll_key] = False
+                    if not self.supports_dynamic_duration():
+                        self._scroll_prepared[scroll_key] = False
+                        self._scroll_active[scroll_key] = False
                     # Mark cycle as complete for dynamic duration
                     self._dynamic_cycle_complete = True
                 
@@ -1965,6 +1973,14 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         # it now, not when the cycle ends -- see _live_scroll_needs_rebuild().
         # Refresh before fingerprinting, not after -- the rebuild
         # decision below is computed from exactly this data.
+        if force_clear:
+            self._scroll_prepared[mode_type] = False
+            self._scroll_active[mode_type] = False
+        elif (self.supports_dynamic_duration()
+              and self._scroll_prepared.get(mode_type, False)
+              and self._scroll_active_league.get(mode_type) == league
+              and self._scroll_manager.is_complete(mode_type)):
+            return True
         self._refresh_live_scroll_managers(league)
         rebuild_for_live = self._live_scroll_needs_rebuild(mode_type, mode_type, league)
         needs_prepare = (
@@ -2032,8 +2048,9 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
             if displayed:
                 if self._scroll_manager.is_complete(mode_type):
                     self.logger.info(f"[Football Scroll] Cycle complete for {display_mode}")
-                    self._scroll_prepared[mode_type] = False
-                    self._scroll_active[mode_type] = False
+                    if not self.supports_dynamic_duration():
+                        self._scroll_prepared[mode_type] = False
+                        self._scroll_active[mode_type] = False
                     self._dynamic_cycle_complete = True
 
                 return True
