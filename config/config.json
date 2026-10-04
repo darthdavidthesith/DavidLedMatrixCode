@@ -184,10 +184,10 @@
         "display_duration": 10
     },
     "football-scoreboard": {
-        "enabled": false,
+        "enabled": true,
         "schedule_lookback_days": 7,
         "nfl": {
-            "enabled": true,
+            "enabled": false,
             "live_priority": true,
             "favorite_teams": [],
             "display_modes": {
@@ -216,6 +216,9 @@
                 "other_games_min_quality": "any",
                 "other_games_divisions": [
                     "fbs"
+                ],
+                "other_games_divisions_data": [
+                    "fbs"
                 ]
             },
             "display_options": {
@@ -243,8 +246,505 @@
                         "enabled": true
                     }
                 }
+            },
+            "favorite_teams_data": [],
+            "exclude_teams": [],
+            "live_game_duration": 30,
+            "non_favorite_live_game_duration": 0,
+            "recent_game_duration": 15.0,
+            "upcoming_game_duration": 15.0,
+            "live_update_interval": 30,
+            "recent_update_interval": 3600,
+            "upcoming_update_interval": 3600,
+            "stale_game_timeout": 300,
+            "odds_update_interval": 3600,
+            "live_odds_update_interval": 60,
+            "celebration_enabled": true,
+            "celebration_duration": 8,
+            "celebrate_opponent_scores": false
+        },
+        "scroll_card": {
+            "upcoming_center": "vs",
+            "switch_upcoming_center": "date_time",
+            "vs_text": "VS",
+            "date_format": "abbrev",
+            "switch_date_format": "numeric",
+            "time_format": "12h",
+            "show_date": true,
+            "show_time": true,
+            "switch_show_date": true,
+            "switch_show_time": true,
+            "swap_date_time": false,
+            "center_gap_ratio": 0.28,
+            "center_gap_min": 22,
+            "center_gap_max": 40
+        },
+        "display_duration": 30.0,
+        "update_interval": 3600,
+        "game_display_duration": 15.0,
+        "ncaa_fb": {
+            "enabled": true,
+            "favorite_teams": [],
+            "exclude_teams": [],
+            "display_modes": {
+                "show_live": true,
+                "show_recent": true,
+                "show_upcoming": true,
+                "live_display_mode": "scroll",
+                "recent_display_mode": "scroll",
+                "upcoming_display_mode": "scroll"
+            },
+            "scroll_settings": {
+                "scroll_speed": 50.0,
+                "scroll_delay": 0.01,
+                "gap_between_games": 48,
+                "show_league_separators": true,
+                "dynamic_duration": true,
+                "game_card_width": 128
+            },
+            "live_priority": true,
+            "live_game_duration": 20,
+            "non_favorite_live_game_duration": 0,
+            "recent_game_duration": 15.0,
+            "upcoming_game_duration": 15.0,
+            "live_update_interval": 30,
+            "recent_update_interval": 3600,
+            "upcoming_update_interval": 3600,
+            "stale_game_timeout": 300,
+            "odds_update_interval": 3600,
+            "live_odds_update_interval": 60,
+            "celebration_enabled": true,
+            "celebration_duration": 8,
+            "celebrate_opponent_scores": false,
+            "game_limits": {
+                "recent_games_to_show": 5,
+                "upcoming_games_to_show": 5,
+                "other_upcoming_games_to_show": 5,
+                "other_recent_games_to_show": 5,
+                "other_rotation_interval_seconds": 1800,
+                "favorite_rotation_boost": 1,
+                "other_games_min_quality": "any",
+                "other_games_divisions": [
+                    "fbs"
+                ]
+            },
+            "display_options": {
+                "show_records": false,
+                "show_ranking": true,
+                "show_odds": true,
+                "show_recent_odds": true
+            },
+            "filtering": {
+                "show_favorite_teams_only": true,
+                "show_all_live": false,
+                "favorite_live_boost": 2
+            },
+            "dynamic_duration": {
+                "enabled": false,
+                "min_duration_seconds": 30.0,
+                "modes": {
+                    "live": {
+                        "enabled": false
+                    },
+                    "recent": {
+                        "enabled": false
+                    },
+                    "upcoming": {
+                        "enabled": false
+                    }
+                }
             }
-        }
+        },
+        "layout_mode": "classic",
+        "timezone": "",
+        "customization": {
+            "score_text": {
+                "font": "PressStart2P-Regular.ttf",
+                "font_size": 10,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "period_text": {
+                "font": "PressStart2P-Regular.ttf",
+                "font_size": 8,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "team_name": {
+                "font": "PressStart2P-Regular.ttf",
+                "font_size": 8,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "status_text": {
+                "font": "4x6-font.ttf",
+                "font_size": 6,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "detail_text": {
+                "font": "4x6-font.ttf",
+                "font_size": 6,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "odds_text": {
+                "font": "4x6-font.ttf",
+                "font_size": 6,
+                "text_color": [
+                    0,
+                    255,
+                    0
+                ]
+            },
+            "rank_text": {
+                "font": "PressStart2P-Regular.ttf",
+                "font_size": 10,
+                "text_color": [
+                    255,
+                    255,
+                    255
+                ]
+            },
+            "layout": {
+                "home_logo": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "away_logo": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "score": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "status_text": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "date": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "time": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "down_distance": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "timeouts": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "possession": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                },
+                "records": {
+                    "away_x_offset": 0,
+                    "home_x_offset": 0,
+                    "y_offset": 0
+                },
+                "odds": {
+                    "x_offset": 0,
+                    "y_offset": 0
+                }
+            },
+            "favorite_result_colors": {
+                "enabled": false,
+                "win_color": [
+                    0,
+                    255,
+                    0
+                ],
+                "loss_color": [
+                    255,
+                    0,
+                    0
+                ],
+                "tie_color": [
+                    255,
+                    200,
+                    0
+                ]
+            },
+            "modes": {
+                "live": {
+                    "score_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "period_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "team_name": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "status_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "detail_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "odds_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "rank_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "layout": {
+                        "home_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "away_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "score": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "status_text": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "date": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "time": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "down_distance": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "timeouts": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "possession": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "records": {
+                            "away_x_offset": null,
+                            "home_x_offset": null,
+                            "y_offset": null
+                        },
+                        "odds": {
+                            "x_offset": null,
+                            "y_offset": null
+                        }
+                    }
+                },
+                "upcoming": {
+                    "score_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "period_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "team_name": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "status_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "detail_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "odds_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "rank_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "layout": {
+                        "home_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "away_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "score": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "status_text": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "date": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "time": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "down_distance": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "timeouts": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "possession": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "records": {
+                            "away_x_offset": null,
+                            "home_x_offset": null,
+                            "y_offset": null
+                        },
+                        "odds": {
+                            "x_offset": null,
+                            "y_offset": null
+                        }
+                    }
+                },
+                "recent": {
+                    "score_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "period_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "team_name": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "status_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "detail_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "odds_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "rank_text": {
+                        "font": null,
+                        "font_size": null,
+                        "text_color": null
+                    },
+                    "layout": {
+                        "home_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "away_logo": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "score": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "status_text": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "date": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "time": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "down_distance": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "timeouts": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "possession": {
+                            "x_offset": null,
+                            "y_offset": null
+                        },
+                        "records": {
+                            "away_x_offset": null,
+                            "home_x_offset": null,
+                            "y_offset": null
+                        },
+                        "odds": {
+                            "x_offset": null,
+                            "y_offset": null
+                        }
+                    }
+                }
+            }
+        },
+        "schedule_lookahead_days": 7,
+        "no_data_interval_seconds": 300,
+        "live_idle_max_interval_seconds": 900,
+        "live_priority": false
     },
     "ledmatrix-flights": {
         "enabled": false
@@ -253,7 +753,7 @@
         "enabled": false
     },
     "basketball-scoreboard": {
-        "enabled": true,
+        "enabled": false,
         "schedule_lookback_days": 2,
         "scroll_card": {
             "upcoming_center": "date_time",
@@ -273,9 +773,15 @@
             "dynamic_duration": {
                 "enabled": true,
                 "modes": {
-                    "recent": {"enabled": true},
-                    "upcoming": {"enabled": true},
-                    "live": {"enabled": true}
+                    "recent": {
+                        "enabled": true
+                    },
+                    "upcoming": {
+                        "enabled": true
+                    },
+                    "live": {
+                        "enabled": true
+                    }
                 }
             },
             "scroll_settings": {
@@ -306,9 +812,15 @@
             "dynamic_duration": {
                 "enabled": true,
                 "modes": {
-                    "recent": {"enabled": true},
-                    "upcoming": {"enabled": true},
-                    "live": {"enabled": true}
+                    "recent": {
+                        "enabled": true
+                    },
+                    "upcoming": {
+                        "enabled": true
+                    },
+                    "live": {
+                        "enabled": true
+                    }
                 }
             },
             "favorite_teams": [],
@@ -336,9 +848,15 @@
             "dynamic_duration": {
                 "enabled": true,
                 "modes": {
-                    "recent": {"enabled": true},
-                    "upcoming": {"enabled": true},
-                    "live": {"enabled": true}
+                    "recent": {
+                        "enabled": true
+                    },
+                    "upcoming": {
+                        "enabled": true
+                    },
+                    "live": {
+                        "enabled": true
+                    }
                 }
             },
             "display_options": {
@@ -356,9 +874,15 @@
             "dynamic_duration": {
                 "enabled": true,
                 "modes": {
-                    "recent": {"enabled": true},
-                    "upcoming": {"enabled": true},
-                    "live": {"enabled": true}
+                    "recent": {
+                        "enabled": true
+                    },
+                    "upcoming": {
+                        "enabled": true
+                    },
+                    "live": {
+                        "enabled": true
+                    }
                 }
             },
             "display_options": {
@@ -368,7 +892,7 @@
         }
     },
     "fantasy-blitz": {
-        "enabled": true,
+        "enabled": false,
         "leagues": [
             {
                 "provider": "sleeper",
@@ -382,17 +906,39 @@
             }
         ],
         "screens": {
-            "player_card": {"enabled": true},
-            "leaderboard": {"enabled": true},
-            "big_play": {"enabled": true},
-            "dud_alert": {"enabled": true},
-            "hot_pickups": {"enabled": true},
-            "position_kings": {"enabled": true},
-            "injury_report": {"enabled": true},
-            "watchlist": {"enabled": true},
-            "weekly_awards": {"enabled": true},
-            "league_matchup": {"enabled": true},
-            "season_race": {"enabled": true}
+            "player_card": {
+                "enabled": true
+            },
+            "leaderboard": {
+                "enabled": true
+            },
+            "big_play": {
+                "enabled": true
+            },
+            "dud_alert": {
+                "enabled": true
+            },
+            "hot_pickups": {
+                "enabled": true
+            },
+            "position_kings": {
+                "enabled": true
+            },
+            "injury_report": {
+                "enabled": true
+            },
+            "watchlist": {
+                "enabled": true
+            },
+            "weekly_awards": {
+                "enabled": true
+            },
+            "league_matchup": {
+                "enabled": true
+            },
+            "season_race": {
+                "enabled": true
+            }
         }
     },
     "nfl-stat-leaders": {
