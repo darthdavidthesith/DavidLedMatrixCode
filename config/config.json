@@ -254,6 +254,7 @@
     },
     "basketball-scoreboard": {
         "enabled": true,
+        "schedule_lookback_days": 2,
         "scroll_card": {
             "upcoming_center": "date_time",
             "switch_upcoming_center": "date_time",
