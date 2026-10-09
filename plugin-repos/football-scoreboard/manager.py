@@ -2840,80 +2840,62 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         if not self.is_enabled:
             return []
 
+        live_by_league = {}
+        for league in ("nfl", "ncaa_fb"):
+            if not (
+                getattr(self, f"{league}_enabled", False)
+                and getattr(self, f"{league}_live_priority", False)
+            ):
+                continue
+            manager = getattr(self, f"{league}_live", None)
+            if manager is None:
+                continue
+
+            celebrating = (
+                hasattr(manager, "has_active_celebration")
+                and manager.has_active_celebration()
+            )
+            games = [
+                game for game in getattr(manager, "live_games", [])
+                if not game.get("is_final", False)
+            ]
+            if hasattr(manager, "_is_game_really_over"):
+                games = [
+                    game for game in games
+                    if not manager._is_game_really_over(game)
+                ]
+            favorites = getattr(manager, "favorite_teams", [])
+            matches_favorite = not favorites or any(
+                game.get("home_abbr") in favorites
+                or game.get("away_abbr") in favorites
+                for game in games
+            )
+            live_by_league[league] = {
+                "celebrating": celebrating,
+                "games": games,
+                "matches_favorite": matches_favorite,
+            }
+
+        has_qualifying_multi_game_league = any(
+            len(state["games"]) > 1 and state["matches_favorite"]
+            for state in live_by_league.values()
+        )
         live_modes = []
-        
-        # Check NFL live content
-        if (
-            self.nfl_enabled
-            and self.nfl_live_priority
-            and hasattr(self, "nfl_live")
-        ):
-            # A celebrating league must be selectable even if its live list is
-            # already empty (a win fires as the game goes final).
-            if (
-                hasattr(self.nfl_live, "has_active_celebration")
-                and self.nfl_live.has_active_celebration()
+        for league in ("nfl", "ncaa_fb"):
+            state = live_by_league.get(league)
+            if not state:
+                continue
+            count = len(state["games"])
+            if state["celebrating"] or (
+                state["matches_favorite"]
+                and (
+                    count > 1
+                    or (count == 1 and has_qualifying_multi_game_league)
+                )
             ):
-                live_modes.append("nfl_live")
+                live_modes.append(f"{league}_live")
 
-            live_games = getattr(self.nfl_live, "live_games", [])
-            if live_games:
-                # Filter out any games that are final or appear over
-                live_games = [g for g in live_games if not g.get("is_final", False)]
-                # Additional validation using helper method if available
-                if hasattr(self.nfl_live, "_is_game_really_over"):
-                    live_games = [g for g in live_games if not self.nfl_live._is_game_really_over(g)]
-                
-                if live_games:
-                    # If favorite teams are configured, only return if there are live games for favorite teams
-                    favorite_teams = getattr(self.nfl_live, "favorite_teams", [])
-                    if favorite_teams and len(live_games) > 1:
-                        if any(
-                            game.get("home_abbr") in favorite_teams
-                            or game.get("away_abbr") in favorite_teams
-                            for game in live_games
-                        ):
-                            live_modes.append("nfl_live")
-                    elif len(live_games) > 1:
-                        live_modes.append("nfl_live")
-        
-        # Check NCAA FB live content
-        if (
-            self.ncaa_fb_enabled
-            and self.ncaa_fb_live_priority
-            and hasattr(self, "ncaa_fb_live")
-        ):
-            # A celebrating league must be selectable even if its live list is
-            # already empty (a win fires as the game goes final).
-            if (
-                hasattr(self.ncaa_fb_live, "has_active_celebration")
-                and self.ncaa_fb_live.has_active_celebration()
-            ):
-                live_modes.append("ncaa_fb_live")
-
-            live_games = getattr(self.ncaa_fb_live, "live_games", [])
-            if live_games:
-                # Filter out any games that are final or appear over
-                live_games = [g for g in live_games if not g.get("is_final", False)]
-                # Additional validation using helper method if available
-                if hasattr(self.ncaa_fb_live, "_is_game_really_over"):
-                    live_games = [g for g in live_games if not self.ncaa_fb_live._is_game_really_over(g)]
-                
-                if live_games:
-                    # If favorite teams are configured, only return if there are live games for favorite teams
-                    favorite_teams = getattr(self.ncaa_fb_live, "favorite_teams", [])
-                    if favorite_teams and len(live_games) > 1:
-                        if any(
-                            game.get("home_abbr") in favorite_teams
-                            or game.get("away_abbr") in favorite_teams
-                            for game in live_games
-                        ):
-                            live_modes.append("ncaa_fb_live")
-                    elif len(live_games) > 1:
-                        live_modes.append("ncaa_fb_live")
-
-        # A celebration and live games for the same league can both append it.
-        return list(dict.fromkeys(live_modes))
+        return live_modes
 
     def _get_game_duration(self, league: str, mode_type: str, manager=None) -> float:
         """Get game duration for a league and mode type combination.

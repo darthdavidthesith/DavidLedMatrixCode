@@ -1,7 +1,7 @@
 {
   "id": "football-scoreboard",
   "name": "Football Scoreboard",
-  "version": "3.10.8",
+  "version": "3.10.9",
   "update_interval": 60,
   "author": "ChuckBuilds",
   "class_name": "FootballScoreboardPlugin",
@@ -25,6 +25,12 @@
     "ncaa_fb_live"
   ],
   "versions": [
+    {
+      "version": "3.10.9",
+      "released": "2026-10-08",
+      "ledmatrix_min_version": "3.4.0",
+      "notes": "Live priority now alternates between NFL and NCAA football when both leagues have live content. A single game joins the rotation only when another league already qualifies for live priority; a lone game by itself still does not take over the board."
+    },
     {
       "version": "3.10.8",
       "released": "2026-09-25",

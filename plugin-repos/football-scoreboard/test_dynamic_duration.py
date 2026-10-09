@@ -11,6 +11,7 @@ These tests verify that:
 import sys
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -176,6 +177,45 @@ class TestGetCycleDuration:
 
 class TestLivePriorityWithDynamicDuration:
     """Tests for interaction between live priority and dynamic duration."""
+
+    @staticmethod
+    def _live_priority_plugin(nfl_games, ncaa_games):
+        from manager import FootballScoreboardPlugin
+
+        plugin = object.__new__(FootballScoreboardPlugin)
+        plugin.is_enabled = True
+        plugin.nfl_enabled = True
+        plugin.ncaa_fb_enabled = True
+        plugin.nfl_live_priority = True
+        plugin.ncaa_fb_live_priority = True
+
+        def live_manager(games):
+            return SimpleNamespace(
+                live_games=games,
+                favorite_teams=[],
+                _is_game_really_over=lambda game: False,
+            )
+
+        plugin.nfl_live = live_manager(nfl_games)
+        plugin.ncaa_fb_live = live_manager(ncaa_games)
+        return plugin
+
+    def test_single_game_league_joins_other_live_leagues_rotation(self):
+        plugin = self._live_priority_plugin(
+            nfl_games=[{"id": "nfl"}],
+            ncaa_games=[{"id": "ncaa-1"}, {"id": "ncaa-2"}],
+        )
+
+        assert plugin.get_live_modes() == ["nfl_live", "ncaa_fb_live"]
+
+    def test_single_live_game_alone_does_not_take_over(self):
+        plugin = self._live_priority_plugin(
+            nfl_games=[{"id": "nfl"}],
+            ncaa_games=[],
+        )
+        plugin.ncaa_fb_enabled = False
+
+        assert plugin.get_live_modes() == []
 
     def test_has_live_priority_returns_false_when_disabled(self, plugin):
         """has_live_priority should return False when no league has it enabled."""

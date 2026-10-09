@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.10.9] - 2026-10-08
+
+### Changed
+- **Live priority alternates between NFL and NCAA football.** When one league
+  qualifies for live priority, a single live game in the other league joins the
+  rotation. A single live game by itself still does not take over the board.
+
 ## [3.10.4] - 2026-09-16
 
 ### Changed
