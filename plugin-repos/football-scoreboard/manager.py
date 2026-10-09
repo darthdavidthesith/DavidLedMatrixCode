@@ -202,6 +202,7 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         # Track current scroll state
         self._scroll_active: Dict[str, bool] = {}  # {game_type: is_active}
         self._scroll_prepared: Dict[str, bool] = {}  # {game_type: is_prepared}
+        self._scroll_restart_pending = set()
         # What each live strip was built from, and when, so a score change
         # rebuilds it mid-cycle instead of at the end of one.
         self._live_scroll_fingerprints = {}
@@ -330,6 +331,7 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         self._scroll_active = {}
         self._scroll_prepared = {}
         self._scroll_active_league = {}
+        self._scroll_restart_pending = set()
 
         # Rebuild rotation modes and reset cycling state.
         self.modes = self._get_available_modes()
@@ -1799,6 +1801,25 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
                     "[Scroll] Live card changed; rebuilt the %s strip in place "
                     "at position %d", mode_type, int(helper.scroll_position))
 
+    def _restart_completed_scroll_if_pending(
+        self, display_mode: str, mode_type: str
+    ) -> None:
+        """Re-prepare a completed strip when its next display cycle begins."""
+        pending = getattr(self, "_scroll_restart_pending", set())
+        key = (display_mode, mode_type)
+        if key not in pending:
+            return
+        pending.discard(key)
+        scroll_key = (
+            f"{display_mode}_{mode_type}"
+            if display_mode.startswith("football_")
+            else mode_type
+        )
+        self._scroll_prepared[scroll_key] = False
+        self._scroll_active[scroll_key] = False
+        if not display_mode.startswith("football_"):
+            self._scroll_active_league.pop(mode_type, None)
+
     def _display_scroll_mode(self, display_mode: str, mode_type: str, force_clear: bool) -> bool:
         """Handle display for scroll mode.
         
@@ -1817,6 +1838,7 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         
         # Check if we need to prepare new scroll content
         scroll_key = f"{display_mode}_{mode_type}"
+        self._restart_completed_scroll_if_pending(display_mode, mode_type)
         if force_clear:
             self._scroll_prepared[scroll_key] = False
             self._scroll_active[scroll_key] = False
@@ -1957,6 +1979,7 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
         display_mode = f"{league}_{mode_type}"
         self._current_display_league = league
         self._current_display_mode_type = mode_type
+        self._restart_completed_scroll_if_pending(display_mode, mode_type)
 
         if not self._scroll_manager:
             self.logger.warning(
@@ -3484,6 +3507,8 @@ class FootballScoreboardPlugin(BasePlugin if BasePlugin else object):
             if mode_type and is_scroll_mode and self._scroll_manager:
                 # For scroll mode, check ScrollHelper's completion status
                 is_complete = self._scroll_manager.is_complete(mode_type)
+                if is_complete:
+                    self._scroll_restart_pending.add((display_mode, mode_type))
                 self.logger.debug(f"is_cycle_complete() [scroll mode]: display_mode={self._current_active_display_mode}, returning {is_complete}")
                 return is_complete
         

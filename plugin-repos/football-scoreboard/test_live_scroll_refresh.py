@@ -54,7 +54,15 @@ def _scroll_cycle_probe(combined, dynamic=True):
     plugin._scroll_prepared = {}
     plugin._scroll_active = {}
     plugin._scroll_active_league = {}
+    plugin._scroll_restart_pending = set()
     plugin._dynamic_cycle_complete = False
+    plugin.is_enabled = True
+    plugin._current_active_display_mode = (
+        "football_recent" if combined else "nfl_recent"
+    )
+    plugin._extract_mode_type = Mock(return_value="recent")
+    plugin._get_display_mode = Mock(return_value="scroll")
+    plugin._should_use_scroll_mode = Mock(return_value=True)
     plugin.nfl_enabled = True
     plugin.ncaa_fb_enabled = False
     plugin.nfl_live_priority = False
@@ -97,6 +105,9 @@ def test_completed_dynamic_scroll_does_not_restart_during_minimum_hold(combined)
         assert display(False)
         assert plugin._scroll_manager.is_complete("recent")
     assert plugin._scroll_manager.prepare_and_display.call_count == 1
+    assert plugin.is_cycle_complete()
+    assert display(False)
+    assert plugin._scroll_manager.prepare_and_display.call_count == 2
 
 
 @pytest.mark.parametrize("combined", [False, True])

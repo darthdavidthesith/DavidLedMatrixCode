@@ -4113,6 +4113,8 @@ class SportsLive(SportsLiveSharedMixin, SportsCore):
                 # Reset the dwell so the scorebug resumes on the scoring/winning
                 # game for a full duration before rotation can move on.
                 self.last_game_switch = time.time()
+        if len(self.live_games) < 2:
+            return False
         # After the celebration branch: a celebration owns the screen, and
         # rotating out of it would undo the dwell reset just above, which
         # exists to give the scoring game its full turn.
