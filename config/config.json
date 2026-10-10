@@ -183,11 +183,16 @@
         "enabled": false,
         "display_duration": 10
     },
+    "ledmatrix-music": {
+        "spotify_client_id": "bdc9fd0e814a44a6a02cb104099fe24a",
+        "spotify_client_secret": "8f14173b48ca426ba54ea9de2195c3cd",
+        "spotify_redirect_uri": "http://127.0.0.1:8888/callback"
+    },
     "football-scoreboard": {
-        "enabled": true,
+        "enabled": false,
         "schedule_lookback_days": 7,
         "nfl": {
-            "enabled": false,
+            "enabled": true,
             "live_priority": true,
             "favorite_teams": [],
             "display_modes": {
@@ -325,6 +330,9 @@
                 "favorite_rotation_boost": 1,
                 "other_games_min_quality": "any",
                 "other_games_divisions": [
+                    "fbs"
+                ],
+                "other_games_divisions_data": [
                     "fbs"
                 ]
             },
@@ -939,18 +947,6 @@
             "season_race": {
                 "enabled": true
             }
-        }
-    },
-    "nfl-stat-leaders": {
-        "enabled": false
-    },
-    "odds-ticker": {
-        "enabled": false,
-        "display_options": {
-            "dynamic_duration": true,
-            "max_duration": 720,
-            "scroll_speed": 0.6,
-            "scroll_delay": 0.05
         }
     }
 }
