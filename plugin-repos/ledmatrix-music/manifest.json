@@ -1,0 +1,231 @@
+{
+  "id": "ledmatrix-music",
+  "name": "Music Player - Now Playing",
+  "version": "1.5.5",
+  "description": "Real-time now playing display for Spotify and YouTube Music with album art, scrolling text, and progress bars",
+  "author": "ChuckBuilds",
+  "entry_point": "manager.py",
+  "class_name": "MusicPlugin",
+  "api_version": "1.0.0",
+  "display_modes": [
+    "now_playing"
+  ],
+  "update_interval": 2,
+  "dependencies": [
+    "spotipy",
+    "python-socketio[client]",
+    "requests",
+    "pillow"
+  ],
+  "config_schema": "config_schema.json",
+  "requirements_file": "requirements.txt",
+  "tags": [
+    "music",
+    "spotify",
+    "youtube-music",
+    "now-playing",
+    "album-art"
+  ],
+  "homepage": "https://github.com/ChuckBuilds/ledmatrix-plugins/tree/main/plugins/ledmatrix-music",
+  "website": "https://github.com/ChuckBuilds/ledmatrix-plugins/tree/main/plugins/ledmatrix-music",
+  "license": "GPL-3.0",
+  "compatible_versions": [
+    ">=2.0.0"
+  ],
+  "min_ledmatrix_version": "2.0.0",
+  "web_ui_actions": [
+    {
+      "id": "authenticate-spotify",
+      "type": "script",
+      "title": "Spotify Authentication",
+      "description": "Click to authenticate with Spotify",
+      "button_text": "Authenticate Spotify",
+      "icon": "fab fa-spotify",
+      "color": "green",
+      "script": "authenticate_spotify.py",
+      "oauth_flow": true,
+      "section_description": "Authenticate with Spotify or YouTube Music to enable music playback display.",
+      "success_message": "Spotify authentication completed successfully",
+      "error_message": "Spotify authentication failed",
+      "step1_message": "Authorization URL generated",
+      "step2_prompt": "Please paste the full redirect URL from Spotify after authorization:",
+      "step2_button_text": "Complete Authentication"
+    },
+    {
+      "id": "authenticate-ytm",
+      "type": "script",
+      "title": "YouTube Music Authentication",
+      "description": "Click to authenticate with YouTube Music",
+      "button_text": "Authenticate YTM",
+      "icon": "fab fa-youtube",
+      "color": "red",
+      "script": "authenticate_ytm.py",
+      "success_message": "YouTube Music authentication completed successfully",
+      "error_message": "YouTube Music authentication failed"
+    }
+  ],
+  "versions": [
+    {
+      "version": "1.5.5",
+      "released": "2026-10-03",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Scrolling no longer stutters while YouTube Music is playing. The YTM connection checked every incoming message's text in slow pure-Python code, blocking the display for tens of milliseconds every few seconds; it now skips that check (the message is still parsed as JSON, which rejects anything malformed)."
+    },
+    {
+      "version": "1.5.4",
+      "released": "2026-10-02",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Spotify: the decoded album cover is kept between polls. The previous art URL was read from the freshly replaced track dict, where it never exists, so every progress-only poll (every 2 s) dropped the cover and display() decoded it again. The enabled fallback is now true, matching the schema and the core."
+    },
+    {
+      "version": "1.5.3",
+      "released": "2026-10-02",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "YouTube Music: a new companion URL or a new token now applies without restarting the display service."
+    },
+    {
+      "version": "1.5.2",
+      "released": "2026-09-28",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Removed code that nothing called. No change in behaviour."
+    },
+    {
+      "version": "1.5.1",
+      "released": "2026-09-28",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Saved settings now apply without a restart. The core applies a web-UI save by calling on_config_change, not by reloading the plugin, and the base version only replaces self.config; only layout_mode was re-read, so fonts, text scrolling and the polling interval waited for a restart. They are re-read on save. Switching preferred_source still needs a restart (it means replacing one client and its threads with the other); the log says so instead of recording a source nothing listens to."
+    },
+    {
+      "version": "1.5.0",
+      "released": "2026-09-28",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Declares spotify_redirect_uri (a secret, blank by default). The Spotify client reads it from config_secrets.json, and the core merges secrets into the plugin config, where the strict schema rejected it: a user who followed the README had the plugin flagged Degraded. Blank keeps the default, http://127.0.0.1:8888/callback, and the README example now matches that default instead of localhost:8080."
+    },
+    {
+      "version": "1.4.5",
+      "released": "2026-09-27",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "The Spotify access token is no longer written to the log. A startup diagnostic logged the first 120 characters of config/spotify_auth.json at INFO on every start, and that file begins with the live access token, so about 100 characters of it went to journald. The diagnostic now logs only the file's length."
+    },
+    {
+      "version": "1.4.4",
+      "released": "2026-09-16",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Artist and album text draw in their default font again: the 5x7 bitmap face at 7px. The element-style resolver was given Press Start 2P as the classic font for those rows, and it uses the classic font whenever the configured font equals the schema default (5x7.bdf), so every default config drew them in Press Start 2P at 7px, off that face's 8px grid, and choosing 5x7.bdf in the web UI changed nothing. The resolver now gets each row's schema default. An explicitly chosen font is still used. README: the font lists no longer offer cozette.bdf, which the schema does not accept."
+    },
+    {
+      "version": "1.4.3",
+      "released": "2026-09-15",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "No network on the render thread. display() still had two blocking paths: an inline album-art download (5s timeout) whenever nothing was prefetched, and activate_music_display() calling the YTM client's connect_client(timeout=10), which can block for 15s. Album art is now downloaded only by the polling thread, the YTM event thread and update(), with a 30s retry after a failure, and display() draws the placeholder until it arrives; YTM connects from the polling thread, which already reconnects with backoff while the display is active. The download also no longer runs while holding track_info_lock, which display() waits on every frame. The prefetched bytes and their URL are now written and read together under a lock, so a frame cannot pair one track's cover with another track's URL. Removed the unused get_current_display_info() and the unenforced max_ledmatrix_version manifest field."
+    },
+    {
+      "version": "1.4.2",
+      "released": "2026-09-07",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Bitmap fonts load at the size their PIXEL_SIZE header declares. A .bdf face exists at exactly one pixel size, so asking FreeType for any other raised and the loader silently substituted a different face -- picking 5x7.bdf in the UI appeared to do nothing (#387)."
+    },
+    {
+      "version": "1.4.1",
+      "released": "2026-09-05",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Validation-sweep fixes; see the PR for the specific defect."
+    },
+    {
+      "version": "1.4.0",
+      "released": "2026-09-03",
+      "notes": "Row stacking, and documentation. The artist and album lines were drawn on top of each other whenever a track had an album name: both rows default to the 5x7 BDF face, display_manager.get_font_height() returns 0 for it, and the layout stacks rows by adding the measured height, so the album row landed one line_gap below the artist row instead of a full row. Rows now fall back to the configured font_size when the measurement is zero (#397). The README documents all 34 settings -- 22 were never named, including layout_mode, progress_bar_match_text, live_priority and every text_scrolling and customization key -- and gains real rendered screenshots.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.3.1",
+      "released": "2026-08-26",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Show the album cover again. display() had two paths to the art: one that decodes bytes the polling thread already downloaded, and an inline fallback that fetches when nothing is prefetched. The prefetch path called _render_album_art() and then dropped the result -- it never assigned image_to_render_this_cycle or self.album_art_image -- so the panel drew its empty placeholder rectangle instead of the cover. Only the fallback published its image, and that branch almost never runs, because the poller prefetches on every track change. Nothing failed and nothing was logged; the art was decoded every frame and discarded. The prefetch path now publishes the image the same way the fallback does, under track_info_lock so a track change mid-decode cannot show the previous cover."
+    },
+    {
+      "version": "1.3.0",
+      "released": "2026-08-22",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Download album art on the polling thread instead of the render thread. display() fetched inline whenever the cached image was empty -- and the poller deliberately emptied it on every track change -- so each new track blocked the panel for an HTTP round trip. The poller already knew the URL had changed; now it downloads there and display() only decodes and resizes. The inline fetch stays as a first-paint fallback, so nothing goes blank before the poller catches up."
+    },
+    {
+      "version": "1.2.1",
+      "released": "2026-08-11",
+      "notes": "Stop an unreachable YTM Companion flooding the log, and stop a malformed event dropping a track change. Measured on a device whose companion was not running: 13,298 error lines in twelve hours, 99.8% of everything the device logged, which buries every other error. Three causes. The poll loop asked for a reconnect every cycle and the client always tried, with no backoff. Each attempt logged two ERROR records, though \"YouTube Music is not open\" is an ordinary state. And the records went out through bare logging.error(), landing on the root logger, so they showed as \"root\" and ignored the plugin's log level -- a user could not quiet them. Reconnects now back off from 5s to a 5-minute cap; the first failure is one WARNING naming the endpoint and what to check, repeats are debug; and the client takes the plugin logger. Over the same twelve hours that is a single warning line, from at most 149 connection attempts rather than one per two-second poll cycle. A missing auth token now warns once per client instead of once per cycle, which was the same flood by another name. Socket.IO's own reconnect loop is disabled so it cannot retry behind the backoff after an established connection drops. Separately, an event carrying \"video\": null raised inside the diagnostic logging, was swallowed, and left a variable unbound, so the update callback was never submitted and the track change was silently lost; the diagnostic fields are now assigned up front and nested values validated.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-07-29",
+      "version": "1.2.0",
+      "notes": "Progress bar now matches the widest of the title/artist/album lines instead of always spanning the full text area, so a short track title no longer leaves a bar stretched across a wide panel. A line long enough to scroll still fills the bar. Disable with progress_bar_match_text.",
+      "ledmatrix_min": "2.0.0"
+    },
+    {
+      "released": "2026-07-17",
+      "version": "1.1.2",
+      "ledmatrix_min": "2.0.0",
+      "notes": "Config schema reorganized for a clearer setup experience: fine-tuning fields moved behind the web UI's collapsed Advanced Settings section (x-advanced). UX-only; no fields, defaults, or behavior changed."
+    },
+    {
+      "released": "2026-07-17",
+      "version": "1.1.1",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "YTM Desktop App authentication now registers each installation with a unique app ID (a random hex code appended to LEDMatrixController), so authenticating multiple LEDMatrix displays against the same YTMD instance no longer overwrites each other's authorization."
+    },
+    {
+      "released": "2026-07-10",
+      "version": "1.1.0",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Adaptive layout (beta, opt-in): set layout_mode: \"adaptive\" to scale title/artist/album fonts to the panel height, matching how the album art already scales. Default stays \"classic\" -- rendering is unchanged unless you opt in; switch back to classic in config to revert without reinstalling. User-configured fonts and y_percent offsets still apply in adaptive mode."
+    },
+    {
+      "released": "2026-07-09",
+      "version": "1.0.8",
+      "notes": "When text scrolling is disabled, truncate the title/artist/album to the text-area width and append an ellipsis, reserving room for it so the '...' indicator isn't clipped away at draw time.",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-07-08",
+      "version": "1.0.7",
+      "notes": "Fix now-playing text overflowing the right edge on narrow (64px-wide) panels: clip the scrolling title/artist/album text to the text-area viewport so long text stays within bounds while it scrolls, instead of drawing past the panel edge. Also set the license to GPL-3.0 (project standard).",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "released": "2026-05-15",
+      "version": "1.0.6",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.0.5",
+      "released": "2026-03-21",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.0.4",
+      "released": "2026-03-01",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.0.3",
+      "released": "2025-11-05",
+      "ledmatrix_min_version": "2.0.0"
+    },
+    {
+      "version": "1.0.0",
+      "released": "2025-01-16",
+      "ledmatrix_min_version": "2.0.0"
+    }
+  ],
+  "last_updated": "2026-10-02",
+  "stars": 0,
+  "downloads": 0,
+  "verified": true,
+  "screenshot": "",
+  "display": {
+    "design_size": {
+      "width": 128,
+      "height": 32
+    }
+  }
+}

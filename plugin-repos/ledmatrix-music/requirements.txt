@@ -1,0 +1,4 @@
+spotipy>=2.25.2
+python-socketio[client]>=5.11.0
+requests>=2.33.0
+pillow>=12.2.0
