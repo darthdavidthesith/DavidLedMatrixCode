@@ -993,6 +993,8 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
     m = item.get("matchup") or {}
     home, away = m.get("home") or {}, m.get("away") or {}
     hp, ap = float(home.get("points") or 0.0), float(away.get("points") or 0.0)
+    home_pct = model.safe_float(home.get("win_pct"))
+    away_pct = model.safe_float(away.get("win_pct"))
     k = ease(t / 1.0) if ctx.animate else 1.0
     tall = h >= 64
     rows = [(home, hp), (away, ap)]
@@ -1026,8 +1028,22 @@ def matchup(ctx: RenderContext, item: Dict[str, Any], w: int, h: int, t: float) 
         p_scale = 2 if font.text_width(pts_text, 2) <= w // 2 - 4 else 1
         pts_w = d.big_number(img, pts_text, w - 2, y, d.WHITE, p_scale, "right", shadow=False)
         x = 2 + compact_offset
-        name_w = w - pts_w - 6 - x
+        pct_value = model.safe_float(side.get("win_pct"))
+        pct_text = f"{pct_value:.0f}%" if pct_value is not None else ""
+        pct_color = d.GRAY
+        if home_pct is not None and away_pct is not None:
+            home_display_pct, away_display_pct = round(home_pct), round(away_pct)
+            if home_display_pct != away_display_pct:
+                favorite_index = 0 if home_display_pct > away_display_pct else 1
+                pct_color = d.GREEN if i == favorite_index else d.RED
+        if pct_text:
+            pct_right = w - pts_w - 5
+            name_w = max(0, pct_right - font.text_width(pct_text) - 3 - x)
+        else:
+            name_w = w - pts_w - 6 - x
         ctx.label(img, side.get("name", ""), x, y + (1 if not tall else 0), name_w, d.WHITE, t)
+        if pct_text:
+            d.text(img, pct_text, pct_right, y + (3 if p_scale == 2 else 1), pct_color, 1, "right")
         if side.get("record"):
             d.tag(img, x, y + 8, side["record"], d.WHITE, d.INK)
     if tall:

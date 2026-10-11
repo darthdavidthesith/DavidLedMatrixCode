@@ -86,6 +86,29 @@ def test_static_frames_are_deterministic():
     assert a.tobytes() == b.tobytes()
 
 
+def test_matchup_win_probabilities_are_colored_and_ties_neutral(monkeypatch):
+    seen = {}
+    original_text = d.text
+
+    def record_text(img, text, x, y, color, *args, **kwargs):
+        seen[str(text)] = color
+        return original_text(img, text, x, y, color, *args, **kwargs)
+
+    monkeypatch.setattr(d, "text", record_text)
+    _, item = items()["matchup"]
+    item["provider"] = "espn"
+
+    render.matchup(ctx(), item, 128, 64, 99.0)
+    assert seen["65%"] == d.GREEN
+    assert seen["35%"] == d.RED
+
+    item["matchup"]["home"]["win_pct"] = 50
+    item["matchup"]["away"]["win_pct"] = 50
+    seen.clear()
+    render.matchup(ctx(), item, 128, 64, 99.0)
+    assert seen["50%"] == d.GRAY
+
+
 def test_glyphs_are_one_bit():
     for scale in (1, 2, 3):
         mask = font.text_mask("SMITH-NJIGBA 42.5 +15.2 ↑484K", scale)
