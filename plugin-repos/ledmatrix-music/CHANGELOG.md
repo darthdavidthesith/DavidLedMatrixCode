@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.6] - 2026-10-11
+
+### Fixed
+- Long Spotify and YouTube Music text now scrolls smoothly by pixel instead
+  of jumping between characters. The plugin requests the core's high-FPS render
+  loop only while at least one text row is scrolling.
+
 ## [1.5.5] - 2026-10-03
 
 ### Fixed

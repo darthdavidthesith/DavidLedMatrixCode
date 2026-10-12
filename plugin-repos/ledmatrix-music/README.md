@@ -77,17 +77,17 @@ Each of the three text rows scrolls independently and takes the same five keys.
 | Key | Default | Notes |
 |---|---|---|
 | `text_scrolling.title.enabled` | `true` | Enable scrolling for track title. Advanced. |
-| `text_scrolling.title.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Controls how many frames between each character scroll. Range: 1-20. Advanced. |
+| `text_scrolling.title.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default is 50 pixels per second. Range: 1-20. Advanced. |
 | `text_scrolling.title.separator` | `"   "` | Text separator between wrapped text (e.g., '   ' for 3 spaces, ' | ' for pipe). Advanced. |
 | `text_scrolling.title.initial_pause_frames` | `0` | Number of frames to pause before starting scroll (0 = no pause) (0–300). Advanced. |
 | `text_scrolling.title.end_pause_frames` | `0` | Number of frames to pause at end before wrapping (0 = no pause) (0–300). Advanced. |
 | `text_scrolling.artist.enabled` | `true` | Enable scrolling for artist name. Advanced. |
-| `text_scrolling.artist.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Controls how many frames between each character scroll. Range: 1-20. Advanced. |
+| `text_scrolling.artist.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default is 50 pixels per second. Range: 1-20. Advanced. |
 | `text_scrolling.artist.separator` | `"   "` | Text separator between wrapped text (e.g., '   ' for 3 spaces, ' | ' for pipe). Advanced. |
 | `text_scrolling.artist.initial_pause_frames` | `0` | Number of frames to pause before starting scroll (0 = no pause) (0–300). Advanced. |
 | `text_scrolling.artist.end_pause_frames` | `0` | Number of frames to pause at end before wrapping (0 = no pause) (0–300). Advanced. |
 | `text_scrolling.album.enabled` | `true` | Enable scrolling for album name. Advanced. |
-| `text_scrolling.album.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Controls how many frames between each character scroll. Range: 1-20. Advanced. |
+| `text_scrolling.album.speed` | `5` | Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default is 50 pixels per second. Range: 1-20. Advanced. |
 | `text_scrolling.album.separator` | `"   "` | Text separator between wrapped text (e.g., '   ' for 3 spaces, ' | ' for pipe). Advanced. |
 | `text_scrolling.album.initial_pause_frames` | `0` | Number of frames to pause before starting scroll (0 = no pause) (0–300). Advanced. |
 | `text_scrolling.album.end_pause_frames` | `0` | Number of frames to pause at end before wrapping (0 = no pause) (0–300). Advanced. |

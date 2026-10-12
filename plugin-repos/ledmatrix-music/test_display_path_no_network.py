@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent
@@ -146,6 +147,26 @@ def test_display_does_not_connect_ytm():
           f"display() did not call ytm.connect_client ({p.ytm.connect_calls} call(s))")
     check(p.is_music_display_active,
           "display() still marks the display active, so the poller connects YTM")
+
+
+def test_long_title_uses_pixel_scroll_and_requests_high_fps():
+    p = _plugin()
+    p.is_music_display_active = True
+    p.current_track_info["title"] = (
+        "A Song Title That Is Much Too Long For This Display")
+    p.display(force_clear=True)
+
+    check(p.enable_scrolling,
+          "an overflowing title requests the controller high-FPS loop")
+    helper = p._music_scroll_lines["title"]["helper"]
+    start_position = helper.scroll_position
+    helper.last_update_time = time.time() - 0.04
+    p.display()
+
+    movement = helper.scroll_position - start_position
+    check(0 < movement < 8,
+          f"the title advances by pixels, not a whole character ({movement:.1f}px)")
+
 
 
 def test_update_backfills_art_and_display_then_draws_it():

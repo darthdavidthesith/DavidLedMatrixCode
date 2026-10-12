@@ -15,7 +15,7 @@ import os
 from io import BytesIO
 import requests
 from typing import Union, Dict, Any, Optional
-from PIL import Image, ImageEnhance, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
 import queue
 
 # Import client modules
@@ -24,6 +24,10 @@ from ytm_client import YTMClient
 
 # Import base plugin class
 from src.plugin_system.base_plugin import BasePlugin
+try:
+    from src.common.scroll_helper import ScrollHelper
+except ImportError:
+    ScrollHelper = None
 
 # Adaptive layout system (opt-in via layout_mode: "adaptive"). Older
 # LEDMatrix cores don't ship it — fall back silently to the classic layout.
@@ -116,6 +120,8 @@ class MusicPlugin(BasePlugin):
         self.track_log_interval = 5.0  # Log track updates every 5 seconds max
         self.artist_scroll_tick = 0
         self.album_scroll_tick = 0
+        self._music_scroll_lines = {}
+        self.enable_scrolling = False
         
         # Scroll configuration (will be loaded from config)
         self.scroll_config = {
@@ -199,6 +205,7 @@ class MusicPlugin(BasePlugin):
         self._apply_layout_mode()
         self.scroll_position_title = self.scroll_position_artist = 0
         self.scroll_position_album = 0
+        self._music_scroll_lines.clear()
 
     def _load_config(self):
         """Load configuration with flattened access (no nested 'music' key)."""
@@ -1151,6 +1158,127 @@ class MusicPlugin(BasePlugin):
         clipped = self._clip_text_to_width(text, font, max_width - ellipsis_width)
         return clipped + ellipsis
 
+    def _render_scrolling_text(self, text, separator, font, color,
+                               viewport_width, line_height):
+        """Rasterize one repeating text line for pixel-based scrolling."""
+        repeated_text = text + separator + text
+        cycle_width = max(
+            1, self.display_manager.get_text_width(text + separator, font))
+        image = Image.new(
+            "RGB", (cycle_width + viewport_width, max(1, line_height)),
+            (0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        if hasattr(draw, "fontmode"):
+            current_draw = getattr(self.display_manager, "draw", None)
+            draw.fontmode = getattr(current_draw, "fontmode", "1")
+
+        if hasattr(font, "load_char") and hasattr(font, "glyph"):
+            try:
+                ascender = font.size.ascender >> 6
+            except Exception:
+                ascender = 0
+            x = 0
+            baseline_y = ascender
+            for char in repeated_text:
+                font.load_char(char)
+                bitmap = font.glyph.bitmap
+                glyph_left = font.glyph.bitmap_left
+                glyph_top = font.glyph.bitmap_top
+                for row in range(bitmap.rows):
+                    for column in range(bitmap.width):
+                        byte_index = row * bitmap.pitch + column // 8
+                        if (byte_index < len(bitmap.buffer)
+                                and bitmap.buffer[byte_index]
+                                & (1 << (7 - column % 8))):
+                            pixel_x = x + glyph_left + column
+                            pixel_y = baseline_y - glyph_top + row
+                            if (0 <= pixel_x < image.width
+                                    and 0 <= pixel_y < image.height):
+                                draw.point((pixel_x, pixel_y), fill=color)
+                x += font.glyph.advance.x >> 6
+        else:
+            draw.text((0, 0), repeated_text, font=font, fill=color)
+        return image, cycle_width
+
+    @staticmethod
+    def _scroll_pixels_per_second(config):
+        """Translate the legacy higher-is-slower divisor to a pixel rate."""
+        try:
+            divisor = int(config.get("speed", 5))
+        except (TypeError, ValueError):
+            divisor = 5
+        divisor = max(1, min(20, divisor))
+        return 250.0 / divisor
+
+    def _draw_music_text_line(self, field, text, font, color, x, y,
+                              viewport_width, line_height, config):
+        """Draw a static line or advance its cached pixel marquee once."""
+        text_width = self.display_manager.get_text_width(text, font)
+        if (ScrollHelper is None or not config["enabled"]
+            or text_width <= viewport_width or viewport_width <= 0):
+            previous_state = self._music_scroll_lines.pop(field, None)
+            if previous_state is not None and viewport_width > 0:
+                self.display_manager.draw.rectangle(
+                    (x, y, x + viewport_width - 1,
+                     y + max(1, line_height) - 1), fill=(0, 0, 0))
+            clipped = (self._truncate_text_with_ellipsis(
+                text, font, viewport_width) if not config["enabled"]
+                else self._clip_text_to_width(text, font, viewport_width))
+            self.display_manager.draw_text(
+                clipped, x=x, y=y, color=color, font=font)
+            return False
+
+        signature = (
+            text, config["separator"], id(font), color, viewport_width,
+            line_height, self._scroll_pixels_per_second(config),
+        )
+        state = self._music_scroll_lines.get(field)
+        if state is None or state["signature"] != signature:
+            strip, cycle_width = self._render_scrolling_text(
+                text, config["separator"], font, color,
+                viewport_width, line_height)
+            helper = ScrollHelper(
+                viewport_width, max(1, line_height), self.logger)
+            helper.set_dynamic_duration_settings(enabled=False)
+            helper.set_scroll_speed(self._scroll_pixels_per_second(config))
+            helper.set_scrolling_image(strip)
+            helper.total_scroll_width = cycle_width
+            helper.reset_scroll()
+            state = {
+                "signature": signature,
+                "helper": helper,
+                "initial_pause_remaining": max(
+                    0, int(config.get("initial_pause_frames", 0))),
+                "end_pause_remaining": 0,
+            }
+            self._music_scroll_lines[field] = state
+
+        helper = state["helper"]
+        now = time.time()
+        if state["initial_pause_remaining"] > 0:
+            state["initial_pause_remaining"] -= 1
+            helper.last_update_time = now
+        elif state["end_pause_remaining"] > 0:
+            state["end_pause_remaining"] -= 1
+            helper.last_update_time = now
+            if state["end_pause_remaining"] == 0:
+                helper.scroll_position = 0
+        else:
+            previous_position = helper.scroll_position
+            helper.update_scroll_position()
+            if helper.scroll_position < previous_position:
+                end_pause = max(
+                    0, int(config.get("end_pause_frames", 0)))
+                if end_pause:
+                    helper.scroll_position = max(
+                        0, helper.total_scroll_width - 1)
+                    state["end_pause_remaining"] = end_pause
+
+        visible = helper.get_visible_portion()
+        if visible is not None:
+            self.display_manager.image.paste(visible, (x, y))
+        return True
+
     def display(self, force_clear: bool = False) -> None:
         """Display music information - called by plugin system."""
         perform_full_refresh_this_cycle = force_clear
@@ -1216,6 +1344,10 @@ class MusicPlugin(BasePlugin):
         
         # Nothing Playing Logic
         if not current_track_info_snapshot or current_track_info_snapshot.get('title') == 'Nothing Playing':
+            self.enable_scrolling = False
+            self._music_scroll_lines.clear()
+            if hasattr(self.display_manager, "set_scrolling_state"):
+                self.display_manager.set_scrolling_state(False)
             if not hasattr(self, '_last_nothing_playing_log_time') or time.time() - getattr(self, '_last_nothing_playing_log_time', 0) > 10:
                 # Add rich diagnostic context so we can see exactly why we're showing Nothing Playing
                 debug_ctx = {
@@ -1291,6 +1423,7 @@ class MusicPlugin(BasePlugin):
             self.album_initial_pause_counter = 0
             self.album_end_pause_counter = 0
             self.album_at_end = False
+            self._music_scroll_lines.clear()
 
         if not self.is_music_display_active and not perform_full_refresh_this_cycle: 
             self.logger.warning("MusicPlugin.display called when music display not active and not a full refresh. Aborting draw.")
@@ -1485,185 +1618,34 @@ class MusicPlugin(BasePlugin):
             f"positions - title: {y_pos_title_top}, artist: {y_pos_artist_top}, album: {y_pos_album_top}, progress_bar: {progress_bar_y}"
         )
 
-        # Title scrolling with configurable settings
-        title_config = self.scroll_config['title']
-        title_width = self.display_manager.get_text_width(title, font_title)
-        current_title_display_text = title
-        
-        if title_width > text_area_width and title_config['enabled']:
-            # Check if we're in initial pause
-            if self.title_initial_pause_counter < title_config['initial_pause_frames']:
-                self.title_initial_pause_counter += 1
-                current_title_display_text = title  # Show full text during initial pause
-            else:
-                # Check if we're at the end and need to pause
-                max_scroll_pos = len(title) - 1
-                if self.scroll_position_title >= max_scroll_pos:
-                    if not self.title_at_end:
-                        self.title_at_end = True
-                        self.title_end_pause_counter = 0
-                    
-                    if self.title_end_pause_counter < title_config['end_pause_frames']:
-                        self.title_end_pause_counter += 1
-                        # Show end of text during end pause
-                        current_title_display_text = title[self.scroll_position_title:] + title_config['separator'] + title[:self.scroll_position_title]
-                    else:
-                        # Reset and wrap around
-                        self.scroll_position_title = 0
-                        self.title_initial_pause_counter = 0
-                        self.title_end_pause_counter = 0
-                        self.title_at_end = False
-                        current_title_display_text = title + title_config['separator'] + title[:self.scroll_position_title]
-                else:
-                    self.title_at_end = False
-                    current_title_display_text = title[self.scroll_position_title:] + title_config['separator'] + title[:self.scroll_position_title]
-                
-                # Advance scroll position based on speed
-                self.title_scroll_tick += 1
-                if self.title_scroll_tick >= title_config['speed']:
-                    if not self.title_at_end or self.title_end_pause_counter >= title_config['end_pause_frames']:
-                        self.scroll_position_title = (self.scroll_position_title + 1) % len(title)
-                    self.title_scroll_tick = 0
-        elif title_width > text_area_width and not title_config['enabled']:
-            # Scrolling disabled - truncate to the viewport with an ellipsis
-            current_title_display_text = self._truncate_text_with_ellipsis(title, font_title, text_area_width)
-            self.scroll_position_title = 0
-            self.title_scroll_tick = 0
-        else:
-            # Text fits, no scrolling needed
-            self.scroll_position_title = 0
-            self.title_scroll_tick = 0
-            self.title_initial_pause_counter = 0
-            self.title_end_pause_counter = 0
-            self.title_at_end = False
-        
-        self.display_manager.draw_text(self._clip_text_to_width(current_title_display_text, font_title, text_area_width),
-                                     x=text_area_x_start, y=y_pos_title_top, color=(255, 255, 255), font=font_title)
-
-        # Artist scrolling with configurable settings
-        artist_config = self.scroll_config['artist']
-        artist_width = self.display_manager.get_text_width(artist, font_artist)
-        current_artist_display_text = artist
-        
-        if artist_width > text_area_width and artist_config['enabled']:
-            # Check if we're in initial pause
-            if self.artist_initial_pause_counter < artist_config['initial_pause_frames']:
-                self.artist_initial_pause_counter += 1
-                current_artist_display_text = artist  # Show full text during initial pause
-            else:
-                # Check if we're at the end and need to pause
-                max_scroll_pos = len(artist) - 1
-                if self.scroll_position_artist >= max_scroll_pos:
-                    if not self.artist_at_end:
-                        self.artist_at_end = True
-                        self.artist_end_pause_counter = 0
-                    
-                    if self.artist_end_pause_counter < artist_config['end_pause_frames']:
-                        self.artist_end_pause_counter += 1
-                        # Show end of text during end pause
-                        current_artist_display_text = artist[self.scroll_position_artist:] + artist_config['separator'] + artist[:self.scroll_position_artist]
-                    else:
-                        # Reset and wrap around
-                        self.scroll_position_artist = 0
-                        self.artist_initial_pause_counter = 0
-                        self.artist_end_pause_counter = 0
-                        self.artist_at_end = False
-                        current_artist_display_text = artist + artist_config['separator'] + artist[:self.scroll_position_artist]
-                else:
-                    self.artist_at_end = False
-                    current_artist_display_text = artist[self.scroll_position_artist:] + artist_config['separator'] + artist[:self.scroll_position_artist]
-                
-                # Advance scroll position based on speed
-                self.artist_scroll_tick += 1
-                if self.artist_scroll_tick >= artist_config['speed']:
-                    if not self.artist_at_end or self.artist_end_pause_counter >= artist_config['end_pause_frames']:
-                        self.scroll_position_artist = (self.scroll_position_artist + 1) % len(artist)
-                    self.artist_scroll_tick = 0
-        elif artist_width > text_area_width and not artist_config['enabled']:
-            # Scrolling disabled - truncate to the viewport with an ellipsis
-            current_artist_display_text = self._truncate_text_with_ellipsis(artist, font_artist, text_area_width)
-            self.scroll_position_artist = 0
-            self.artist_scroll_tick = 0
-        else:
-            # Text fits, no scrolling needed
-            self.scroll_position_artist = 0
-            self.artist_scroll_tick = 0
-            self.artist_initial_pause_counter = 0
-            self.artist_end_pause_counter = 0
-            self.artist_at_end = False
-
-        self.display_manager.draw_text(self._clip_text_to_width(current_artist_display_text, font_artist, text_area_width),
-                                     x=text_area_x_start, y=y_pos_artist_top, color=(180, 180, 180), font=font_artist)
+        self.enable_scrolling = False
+        title_scrolling = self._draw_music_text_line(
+            'title', title, font_title, (255, 255, 255), text_area_x_start,
+            y_pos_title_top, text_area_width, title_height,
+            self.scroll_config['title'])
+        artist_scrolling = self._draw_music_text_line(
+            'artist', artist, font_artist, (180, 180, 180), text_area_x_start,
+            y_pos_artist_top, text_area_width, artist_height,
+            self.scroll_config['artist'])
             
         # Album
         available_height_for_album = matrix_height - y_pos_album_top
         self.logger.debug(f"MusicPlugin.display: Album display check - matrix_height: {matrix_height}, y_pos_album_top: {y_pos_album_top}, available_height: {available_height_for_album}, album_height: {album_height}")
 
         if available_height_for_album >= album_height: 
-            album_width = self.display_manager.get_text_width(album, font_album)
-            self.logger.debug(f"MusicPlugin.display: Album '{album}' - width: {album_width}, text_area_width: {text_area_width}")
-            
-            # Display album if it fits or can be scrolled (maintains original behavior but adds scrolling)
-            album_config = self.scroll_config['album']
-            if album_width <= text_area_width:
-                # Album fits without scrolling - display normally
-                self.logger.debug(f"MusicPlugin.display: Drawing album '{album}' at ({text_area_x_start}, {y_pos_album_top}) - fits without scrolling")
-                self.display_manager.draw_text(self._clip_text_to_width(album, font_album, text_area_width),
-                                             x=text_area_x_start, y=y_pos_album_top, color=(150, 150, 150), font=font_album)
-                self.scroll_position_album = 0
-                self.album_scroll_tick = 0
-                self.album_initial_pause_counter = 0
-                self.album_end_pause_counter = 0
-                self.album_at_end = False
-            elif album_width > text_area_width:
-                # Album is too wide - scroll it (if enabled)
-                current_album_display_text = album
-                
-                if album_config['enabled']:
-                    # Check if we're in initial pause
-                    if self.album_initial_pause_counter < album_config['initial_pause_frames']:
-                        self.album_initial_pause_counter += 1
-                        current_album_display_text = album  # Show full text during initial pause
-                    else:
-                        # Check if we're at the end and need to pause
-                        max_scroll_pos = len(album) - 1
-                        if self.scroll_position_album >= max_scroll_pos:
-                            if not self.album_at_end:
-                                self.album_at_end = True
-                                self.album_end_pause_counter = 0
-                            
-                            if self.album_end_pause_counter < album_config['end_pause_frames']:
-                                self.album_end_pause_counter += 1
-                                # Show end of text during end pause
-                                current_album_display_text = album[self.scroll_position_album:] + album_config['separator'] + album[:self.scroll_position_album]
-                            else:
-                                # Reset and wrap around
-                                self.scroll_position_album = 0
-                                self.album_initial_pause_counter = 0
-                                self.album_end_pause_counter = 0
-                                self.album_at_end = False
-                                current_album_display_text = album + album_config['separator'] + album[:self.scroll_position_album]
-                        else:
-                            self.album_at_end = False
-                            current_album_display_text = album[self.scroll_position_album:] + album_config['separator'] + album[:self.scroll_position_album]
-                        
-                        # Advance scroll position based on speed
-                        self.album_scroll_tick += 1
-                        if self.album_scroll_tick >= album_config['speed']:
-                            if not self.album_at_end or self.album_end_pause_counter >= album_config['end_pause_frames']:
-                                self.scroll_position_album = (self.scroll_position_album + 1) % len(album)
-                            self.album_scroll_tick = 0
-                else:
-                    # Scrolling disabled - truncate to the viewport with an ellipsis
-                    current_album_display_text = self._truncate_text_with_ellipsis(album, font_album, text_area_width)
-                    self.scroll_position_album = 0
-                    self.album_scroll_tick = 0
-                
-                self.logger.debug(f"MusicPlugin.display: Drawing scrolling album '{current_album_display_text}' at ({text_area_x_start}, {y_pos_album_top}) - position: {self.scroll_position_album}")
-                self.display_manager.draw_text(self._clip_text_to_width(current_album_display_text, font_album, text_area_width),
-                                             x=text_area_x_start, y=y_pos_album_top, color=(150, 150, 150), font=font_album)
+            album_scrolling = self._draw_music_text_line(
+                'album', album, font_album, (150, 150, 150), text_area_x_start,
+                y_pos_album_top, text_area_width, album_height,
+                self.scroll_config['album'])
         else:
             self.logger.debug(f"MusicPlugin.display: Album '{album}' not displayed - insufficient height (available: {available_height_for_album}, needed: {album_height})")
+            self._music_scroll_lines.pop('album', None)
+            album_scrolling = False
+
+        self.enable_scrolling = (
+            title_scrolling or artist_scrolling or album_scrolling)
+        if hasattr(self.display_manager, "set_scrolling_state"):
+            self.display_manager.set_scrolling_state(self.enable_scrolling)
 
         # Progress Bar (position already calculated earlier for layout validation)
         duration_ms = current_track_info_snapshot.get('duration_ms', 0)
