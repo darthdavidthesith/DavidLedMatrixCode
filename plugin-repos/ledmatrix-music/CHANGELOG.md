@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.7] - 2026-10-11
+
+### Fixed
+- Slow the default pixel marquee from 50 to 20 pixels per second. A 184px
+  music line now takes about 9 seconds to complete its scroll cycle.
+
 ## [1.5.6] - 2026-10-11
 
 ### Fixed

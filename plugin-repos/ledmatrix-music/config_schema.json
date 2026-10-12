@@ -88,7 +88,7 @@
             "speed": {
               "x-advanced": true,
               "type": "integer",
-              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 50 pixels per second. Range: 1-20",
+              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 20 pixels per second. Range: 1-20",
               "minimum": 1,
               "maximum": 20,
               "default": 5
@@ -132,7 +132,7 @@
             "speed": {
               "x-advanced": true,
               "type": "integer",
-              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 50 pixels per second. Range: 1-20",
+              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 20 pixels per second. Range: 1-20",
               "minimum": 1,
               "maximum": 20,
               "default": 5
@@ -176,7 +176,7 @@
             "speed": {
               "x-advanced": true,
               "type": "integer",
-              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 50 pixels per second. Range: 1-20",
+              "description": "Scroll speed divisor (higher = slower, lower = faster). Maps inversely to pixel speed; the default 5 is 20 pixels per second. Range: 1-20",
               "minimum": 1,
               "maximum": 20,
               "default": 5

@@ -1208,7 +1208,7 @@ class MusicPlugin(BasePlugin):
         except (TypeError, ValueError):
             divisor = 5
         divisor = max(1, min(20, divisor))
-        return 250.0 / divisor
+        return 100.0 / divisor
 
     def _draw_music_text_line(self, field, text, font, color, x, y,
                               viewport_width, line_height, config):
