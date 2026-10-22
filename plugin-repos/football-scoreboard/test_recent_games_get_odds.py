@@ -125,6 +125,25 @@ def main():
     check("the in-progress game was not asked about",
           "live" not in probe.requested, probe.requested)
 
+    print("\nWednesday before Week 7 kickoff: Recent stays on Week 6")
+    now = datetime.now(timezone.utc)
+    week5 = _final("week5", "A", "B", days_ago=9)
+    week5.update(week_number=5, season_type=2)
+    week6 = _final("week6", "C", "D", days_ago=2)
+    week6.update(week_number=6, season_type=2)
+    week7 = {
+        "id": "week7", "away_abbr": "E", "home_abbr": "F",
+        "is_final": False, "period": 0, "clock": "",
+        "status_text": "Scheduled", "away_score": "0", "home_score": "0",
+        "start_time_utc": now + timedelta(days=2),
+        "week_number": 7, "season_type": 2,
+    }
+    probe = _make([week5, week6, week7], favorites=[])
+    probe.update()
+    check("latest completed week's final is shown",
+          [game["id"] for game in probe.games_list] == ["week6"],
+          [game["id"] for game in probe.games_list])
+
     print("\nshow_odds off: no requests")
     probe = _make(events[:2], favorites=["UGA"], show_odds=False)
     probe.update()

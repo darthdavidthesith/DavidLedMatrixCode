@@ -3121,31 +3121,37 @@ class SportsRecent(SportsRecentSharedMixin, SportsCore):
                 f"({lookback_days} days ago)"
             )
 
-            # Current (season_type, week_number), taken from whichever fetched
-            # game starts closest to now. The day-count cutoff above is a
-            # coarse safety net (and the only option when ESPN omits week
-            # data); this pins "recent" to the current matchweek so last
-            # week's Monday nighter drops off the moment this week's games
-            # start, instead of lingering for the rest of lookback_days.
+            # Recent follows the latest completed matchweek, not the scheduled
+            # game nearest to now. Before Thursday kickoff, that is still last
+            # week's finals; once this week's games finish, their week becomes
+            # the recent context. The date cutoff remains the retention limit.
+            processed_events = [
+                game for event in events
+                if (game := self._extract_game_details(event)) is not None
+            ]
             current_week_ctx = None
-            best_diff = None
-            for event in events:
-                game_time = self._parse_espn_datetime(event.get("date"))
-                week_number = (event.get("week") or {}).get("number")
-                season_type = (event.get("season") or {}).get("type")
-                if game_time is None or week_number is None or season_type is None:
+            latest_final_time = None
+            for game in processed_events:
+                game_time = game.get("start_time_utc")
+                week_number = game.get("week_number")
+                season_type = game.get("season_type")
+                if (not game.get("is_final") or game_time is None
+                        or game_time > now or week_number is None
+                        or season_type is None):
                     continue
-                diff = abs((game_time - now).total_seconds())
-                if best_diff is None or diff < best_diff:
-                    best_diff = diff
+                if latest_final_time is None or game_time > latest_final_time:
+                    latest_final_time = game_time
                     current_week_ctx = (season_type, week_number)
+            if current_week_ctx is not None:
+                self.logger.info(
+                    "Recent matchweek from latest completed game: "
+                    "season_type=%s week=%s",
+                    *current_week_ctx,
+                )
 
             # Process games and filter for final games, date range & favorite teams
             processed_games = []
-            for event in events:
-                game = self._extract_game_details(event)
-                if not game:
-                    continue
+            for game in processed_events:
                 if current_week_ctx is not None:
                     game_week_ctx = (game.get("season_type"), game.get("week_number"))
                     if None not in game_week_ctx and game_week_ctx != current_week_ctx:
