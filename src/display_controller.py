@@ -248,6 +248,8 @@ class DisplayController:
         # Plugin display() signature cache — must be initialised before the plugin
         # loading loop below so the .pop() invalidation at load time is always safe.
         self._plugin_accepts_display_mode: Dict[str, bool] = {}
+        self._empty_mode_scan_modes = frozenset()
+        self._empty_mode_scan_seen = set()
 
         try:
             logger.info("Attempting to import plugin system...")
@@ -1066,6 +1068,25 @@ class DisplayController:
             sleep_time = min(tick_interval, remaining)
             time.sleep(sleep_time)
             self._tick_plugin_updates()
+
+    def _record_empty_display_mode(self, mode: str) -> bool:
+        """Return True once every mode in the current rotation lacked content."""
+        modes = self.on_demand_modes if self.on_demand_active else self.available_modes
+        current_modes = frozenset(modes or ())
+        if not current_modes:
+            self._empty_mode_scan_modes = current_modes
+            self._empty_mode_scan_seen.clear()
+            return False
+        if current_modes != self._empty_mode_scan_modes:
+            self._empty_mode_scan_modes = current_modes
+            self._empty_mode_scan_seen.clear()
+        if mode not in current_modes:
+            return False
+        self._empty_mode_scan_seen.add(mode)
+        if current_modes.issubset(self._empty_mode_scan_seen):
+            self._empty_mode_scan_seen.clear()
+            return True
+        return False
 
     def _get_display_duration(self, mode_key):
         """Get display duration for a mode."""
@@ -2082,7 +2103,7 @@ class DisplayController:
 
                 manager_to_display = None
                 
-                logger.info("Processing mode: %s (%d available)", active_mode, len(self.available_modes))
+                logger.debug("Processing mode: %s (%d available)", active_mode, len(self.available_modes))
                 logger.debug("Loaded plugin modes: %s", list(self.plugin_modes.keys()))
                 
                 # Handle plugin-based display modes
@@ -2215,7 +2236,7 @@ class DisplayController:
                             if isinstance(result, bool):
                                 display_result = result
                                 if not display_result:
-                                    logger.info("Plugin %s display() returned False for mode %s", plugin_id, active_mode)
+                                    logger.debug("Plugin %s display() returned False for mode %s", plugin_id, active_mode)
                         
                         # Record success only when display() actually ran this
                         # frame -- a skipped frame (lock busy) held the last
@@ -2237,6 +2258,13 @@ class DisplayController:
                 
                 # If display() returned False, skip to next mode immediately
                 if not display_result:
+                    if not display_failed_due_to_exception and self._record_empty_display_mode(active_mode):
+                        logger.warning(
+                            "No content in any display mode; clearing the stale frame and retrying in 1s"
+                        )
+                        self.display_manager.clear()
+                        self.display_manager.update_display()
+                        self._sleep_with_plugin_updates(1.0, tick_interval=0.25)
                     if self.on_demand_active:
                         # Skip to next on-demand mode if no content
                         logger.info("No content for on-demand mode %s, skipping to next mode", active_mode)
@@ -2264,7 +2292,7 @@ class DisplayController:
                             logger.warning("Next on-demand mode is invalid, skipping rotation")
                             continue
                     else:
-                        logger.info("No content to display for %s, skipping to next mode", active_mode)
+                        logger.debug("No content to display for %s, skipping to next mode", active_mode)
                         # Don't clear display when immediately moving to next mode - this causes black flashes
                         # The next mode will render immediately with force_clear=True, which is sufficient
                         
@@ -2305,6 +2333,7 @@ class DisplayController:
                         # If no exception (just no content), fall through to normal rotation logic
                         # This allows trying other modes (recent, upcoming) from the same plugin
                 else:
+                    self._empty_mode_scan_seen.clear()
                     # Get base duration for current mode
                     base_duration = self._get_display_duration(active_mode)
                     dynamic_enabled = (

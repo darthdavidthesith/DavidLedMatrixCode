@@ -55,6 +55,27 @@ class TestDisplayControllerModeRotation:
         
         assert controller.current_mode_index == 0
 
+    def test_all_empty_modes_trigger_retry_only_after_full_pass(self, test_display_controller):
+        controller = test_display_controller
+        controller.available_modes = ["mode1", "mode2", "mode3"]
+        controller.on_demand_active = False
+
+        assert controller._record_empty_display_mode("mode1") is False
+        assert controller._record_empty_display_mode("mode2") is False
+        assert controller._record_empty_display_mode("mode1") is False
+        assert controller._record_empty_display_mode("mode3") is True
+        assert controller._record_empty_display_mode("mode1") is False
+
+    def test_empty_mode_scan_resets_when_rotation_changes(self, test_display_controller):
+        controller = test_display_controller
+        controller.available_modes = ["mode1", "mode2"]
+        controller.on_demand_active = False
+
+        assert controller._record_empty_display_mode("mode1") is False
+        controller.available_modes = ["mode1", "mode3"]
+        assert controller._record_empty_display_mode("mode3") is False
+        assert controller._record_empty_display_mode("mode1") is True
+
 
 class TestDisplayControllerOnDemand:
     """Test on-demand request handling."""

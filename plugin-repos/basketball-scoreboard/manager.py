@@ -1941,7 +1941,17 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         if not getattr(self, "_scroll_manager", None):
             return False
         for mode_type in ("live", "recent", "upcoming"):
-            for league in self._get_enabled_leagues_for_mode(mode_type):
+            leagues = self._get_enabled_leagues_for_mode(mode_type)
+            if mode_type == "live":
+                # Live priority can force a live mode onto the display even
+                # when show_live is false; it still needs the fast frame loop.
+                leagues.extend(
+                    league for league, entry in self._league_registry.items()
+                    if entry.get("enabled", False)
+                    and getattr(self, f"{league}_live_priority", False)
+                    and league not in leagues
+                )
+            for league in leagues:
                 if self._should_use_scroll_mode(league, mode_type):
                     return True
         return False

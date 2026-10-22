@@ -95,6 +95,12 @@ check("cycling state reset", plugin.current_mode_index == 0)
 check("high-FPS flag re-evaluated", plugin.enable_scrolling is CAN_SCROLL,
       f"{plugin.enable_scrolling}")
 
+forced_live_config = config(True, mode="scroll", live_priority=True)
+forced_live_config[LEAGUE]["display_modes"]["show_live"] = False
+forced_live = build(forced_live_config)
+check("forced scrolling live mode still enables high-FPS",
+    forced_live.enable_scrolling is True, f"{forced_live.enable_scrolling}")
+
 print("\nturning it back off")
 plugin.on_config_change(config(False))
 check("the disabled league's managers are dropped",
