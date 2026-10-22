@@ -111,7 +111,7 @@ class HeadshotStore:
         if entry is not None:
             found = entry.get("data") or {}
             age = now - float(entry.get("fetched_at") or 0)
-            if found.get("espn_id") and age < LOOKUP_TTL:
+            if found.get("espn_id") and found.get("jersey") and age < LOOKUP_TTL:
                 return found, False
             if not found.get("espn_id") and age < MISS_TTL:
                 return None, False
@@ -189,6 +189,8 @@ class HeadshotStore:
                 else:
                     found, used_network = self._resolve(player, now)
                 lookups += 1 if used_network else 0
+                if used_network and found and not found.get("jersey"):
+                    self._retry_at[pid] = now + RETRY_AFTER
                 if not want_photo or not found or not found.get("espn_id"):
                     continue
                 if downloads >= max_downloads or self.has_image(found["espn_id"], now):

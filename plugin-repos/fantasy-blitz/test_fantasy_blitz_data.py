@@ -7,6 +7,7 @@ here, and HTTP is replaced by a stub session.
 import json
 import os
 import sys
+import time
 
 import pytest
 
@@ -284,3 +285,18 @@ def test_prefetch_resolves_downloads_and_caches():
     portrait = store.portrait(allen, 30, 40)
     assert portrait is not None and portrait.size == (30, 40)
     assert store.prefetch([allen]) == 0, "everything is cached now"
+
+
+def test_prefetch_refreshes_cached_espn_match_without_jersey():
+    data = make_data({"common/v3/search": {"items": SEARCH_ITEMS}})
+    store = heads.HeadshotStore(data, __import__("logging").getLogger("t"))
+    allen = {"id": "4984", "name": "Josh Allen", "pos": "QB", "team": "BUF"}
+    data.write(store._lookup_key(allen), {
+        "espn_id": "3918298", "jersey": "",
+        "href": "https://a.espncdn.com/i/headshots/nfl/players/full/3918298.png",
+    }, now=time.time() - 60)
+
+    assert store.jersey(allen) == ""
+    assert store.prefetch([], [allen]) == 1
+    assert store.jersey(allen) == "17"
+    assert len(data.session.calls) == 1
