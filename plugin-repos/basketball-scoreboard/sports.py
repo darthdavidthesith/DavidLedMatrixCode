@@ -2620,7 +2620,6 @@ class SportsUpcoming(SportsCore):
         selected_games = []
         selected_ids = set()
         team_counts = {team: 0 for team in favorite_teams}
-        favorite_limit = 1 if getattr(self, "show_favorite_teams_only", False) else self.upcoming_games_to_show
 
         for game in sorted_games:
             game_id = game.get("id")
@@ -2637,8 +2636,8 @@ class SportsUpcoming(SportsCore):
                 continue
 
             # Check if at least one favorite team still needs games
-            home_needs = home_fav and team_counts[home] < favorite_limit
-            away_needs = away_fav and team_counts[away] < favorite_limit
+            home_needs = home_fav and team_counts[home] < self.upcoming_games_to_show
+            away_needs = away_fav and team_counts[away] < self.upcoming_games_to_show
 
             if home_needs or away_needs:
                 selected_games.append(game)
@@ -2655,7 +2654,7 @@ class SportsUpcoming(SportsCore):
                 )
 
             # Check if all favorites are satisfied
-            if all(c >= favorite_limit for c in team_counts.values()):
+            if all(c >= self.upcoming_games_to_show for c in team_counts.values()):
                 self.logger.debug("All favorite teams satisfied, stopping selection")
                 break
 
@@ -2789,17 +2788,29 @@ class SportsUpcoming(SportsCore):
                             f"Added {len(tourney_extras)} tournament games "
                             f"(limit: {self.tournament_games_limit})"
                         )
+            elif self.favorite_teams:
+                # Favourites set, but not exclusively: show them first, then
+                # top up with other games so the board still has variety.
+                team_games = self._favorites_first(
+                    processed_games,
+                    self.upcoming_games_to_show,
+                    self.other_upcoming_games_to_show,
+                )
+                shown_favs = sum(1 for g in team_games if self._is_favorite_game(g))
+                self.logger.info(
+                    "Favorites %s: showing %d favorite and %d other upcoming games. "
+                    "Set other_upcoming_games_to_show to 0 for favorites only.",
+                    self.favorite_teams, shown_favs, len(team_games) - shown_favs
+                )
             else:
-                # With favorite-only disabled, the configured date window is
-                # the policy: show the full league-wide slate.
-                self._selection_pools = None
+                # No favourites at all: the next N upcoming games league-wide.
                 team_games = sorted(
                     self._filtered_or_all(processed_games),
                     key=lambda g: g.get("start_time_utc")
                     or datetime.max.replace(tzinfo=timezone.utc),
-                )
+                )[:self.upcoming_games_to_show]
                 self.logger.info(
-                    "League-wide window: showing %d upcoming games",
+                    "No favorites configured: showing %d total upcoming games",
                     len(team_games)
                 )
 
@@ -3127,6 +3138,31 @@ class SportsUpcoming(SportsCore):
                         )
 
             if self.current_game:
+                if self.sport_key == "nba":
+                    diagnostic_signature = (
+                        self.current_game.get("id"),
+                        self.current_game.get("game_date"),
+                        self.current_game.get("game_time"),
+                        str(self.current_game.get("start_time_utc")),
+                    )
+                    if diagnostic_signature != getattr(
+                        self, "_last_nba_upcoming_diagnostic", None
+                    ):
+                        self.logger.info(
+                            "[NBA Upcoming] Render input: id=%s matchup=%s@%s "
+                            "game_date=%r game_time=%r start_time_utc=%r "
+                            "center=%s show_date=%s show_time=%s",
+                            self.current_game.get("id"),
+                            self.current_game.get("away_abbr"),
+                            self.current_game.get("home_abbr"),
+                            self.current_game.get("game_date"),
+                            self.current_game.get("game_time"),
+                            self.current_game.get("start_time_utc"),
+                            self._switch_upcoming_center(),
+                            self._card_option("switch_show_date", True),
+                            self._card_option("switch_show_time", True),
+                        )
+                        self._last_nba_upcoming_diagnostic = diagnostic_signature
                 self._draw_scorebug_layout(self.current_game, force_clear)
             # update_display() is called within _draw_scorebug_layout for upcoming
 
@@ -3165,7 +3201,6 @@ class SportsRecent(SportsRecentSharedMixin, SportsCore):
         selected_games = []
         selected_ids = set()
         team_counts = {team: 0 for team in favorite_teams}
-        favorite_limit = 1 if getattr(self, "show_favorite_teams_only", False) else self.recent_games_to_show
 
         for game in sorted_games:
             game_id = game.get("id")
@@ -3181,8 +3216,8 @@ class SportsRecent(SportsRecentSharedMixin, SportsCore):
             if not home_fav and not away_fav:
                 continue
 
-            home_needs = home_fav and team_counts[home] < favorite_limit
-            away_needs = away_fav and team_counts[away] < favorite_limit
+            home_needs = home_fav and team_counts[home] < self.recent_games_to_show
+            away_needs = away_fav and team_counts[away] < self.recent_games_to_show
 
             if home_needs or away_needs:
                 selected_games.append(game)
@@ -3196,7 +3231,7 @@ class SportsRecent(SportsRecentSharedMixin, SportsCore):
                     f"Selected recent game {away}@{home}: team_counts={team_counts}"
                 )
 
-            if all(c >= favorite_limit for c in team_counts.values()):
+            if all(c >= self.recent_games_to_show for c in team_counts.values()):
                 self.logger.debug("All favorite teams satisfied, stopping selection")
                 break
 
@@ -3347,18 +3382,30 @@ class SportsRecent(SportsRecentSharedMixin, SportsCore):
                     self.logger.info(
                         f"Game {i+1} for display: {game['away_abbr']} @ {game['home_abbr']} - {game.get('start_time_utc')} - Score: {game['away_score']}-{game['home_score']}"
                     )
+            elif self.favorite_teams:
+                # Favourites set, but not exclusively: theirs first, then fill.
+                team_games = self._favorites_first(
+                    processed_games,
+                    self.recent_games_to_show,
+                    self.other_recent_games_to_show,
+                    newest_first=True,
+                )
+                shown_favs = sum(1 for g in team_games if self._is_favorite_game(g))
+                self.logger.info(
+                    "Favorites %s: showing %d favorite and %d other recent games. "
+                    "Set other_recent_games_to_show to 0 for favorites only.",
+                    self.favorite_teams, shown_favs, len(team_games) - shown_favs
+                )
             else:
-                # With favorite-only disabled, the configured date window is
-                # the policy: show the full league-wide slate.
-                self._selection_pools = None
+                # No favourites at all: the next N recent games league-wide.
                 team_games = sorted(
                     self._filtered_or_all(processed_games),
                     key=lambda g: g.get("start_time_utc")
                     or datetime.min.replace(tzinfo=timezone.utc),
                     reverse=True,
-                )
+                )[:self.recent_games_to_show]
                 self.logger.info(
-                    "League-wide window: showing %d recent games",
+                    "No favorites configured: showing %d total recent games",
                     len(team_games)
                 )
 

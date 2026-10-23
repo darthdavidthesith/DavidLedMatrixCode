@@ -102,6 +102,7 @@ class GameRenderer(SportsGameRendererMixin):
         self.display_height = display_height
         self.config = config
         self.logger = custom_logger or logger
+        self._upcoming_diagnostic_count = 0
         
         # Shared logo cache for performance
         self._logo_cache = logo_cache if logo_cache is not None else {}
@@ -587,6 +588,32 @@ class GameRenderer(SportsGameRendererMixin):
                 fill=self._score_color_for(game, game_type)
             )
         elif game_type == "upcoming":
+            if league == "nba" and self._upcoming_diagnostic_count < 3:
+                self.logger.info(
+                    "[NBA Upcoming Scroll] id=%s matchup=%s@%s "
+                    "game_date=%r game_time=%r start_time_utc=%r "
+                    "formatted_date=%r formatted_time=%r "
+                    "center=%s show_date=%s show_time=%s swap=%s "
+                    "card=%sx%s date_offset=%s time_offset=%s "
+                    "date_color=%s time_color=%s",
+                    game.get("id"), away_abbr, home_abbr,
+                    game.get("game_date"), game.get("game_time"),
+                    game.get("start_time_utc"),
+                    self._format_game_date(game.get("game_date", ""), game),
+                    self._format_game_time(game.get("game_time", "")),
+                    self._upcoming_center_mode(),
+                    self._scroll_card_option("show_date", True),
+                    self._scroll_card_option("show_time", True),
+                    self._scroll_card_option("swap_date_time", False),
+                    self.display_width, self.display_height,
+                    (self._layout_offset("date", "x_offset"),
+                     self._layout_offset("date", "y_offset")),
+                    (self._layout_offset("time", "x_offset"),
+                     self._layout_offset("time", "y_offset")),
+                    self._element_color("detail_text"),
+                    self._element_color("period_text"),
+                )
+                self._upcoming_diagnostic_count += 1
             self._draw_upcoming_center(draw_overlay, game)
 
         # Draw period/status based on game type
@@ -599,8 +626,7 @@ class GameRenderer(SportsGameRendererMixin):
         
         # Draw records, rankings, or tournament seeds if enabled
         show_tourney_seeds = game.get("is_tournament", False) and self._get_mm_setting(game, 'show_seeds')
-        display_options = self.config.get(league, {}).get('display_options', {})
-        if display_options.get('show_records', False) or display_options.get('show_ranking', False) or show_tourney_seeds:
+        if self.show_records or self.show_ranking or show_tourney_seeds:
             self._draw_records_or_rankings(draw_overlay, game)
 
         # Draw odds if available
@@ -890,21 +916,17 @@ class GameRenderer(SportsGameRendererMixin):
             if seed > 0:
                 return f"({seed})"
 
-        display_options = self.config.get((game or {}).get('league', 'nba'), {}).get('display_options', {})
-        show_ranking = display_options.get('show_ranking', False)
-        show_records = display_options.get('show_records', False)
-        if show_ranking and show_records:
+        if self.show_ranking and self.show_records:
             rank = self._team_rankings_cache.get(abbr, 0)
             if rank > 0:
                 return f"#{rank}"
             return record
-        elif show_ranking:
+        elif self.show_ranking:
             rank = self._team_rankings_cache.get(abbr, 0)
             if rank > 0:
                 return f"#{rank}"
             return ''
-        elif show_records:
+        elif self.show_records:
             return record
         return ''
-
 

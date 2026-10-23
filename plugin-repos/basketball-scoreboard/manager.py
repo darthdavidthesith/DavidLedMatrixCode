@@ -1941,17 +1941,7 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         if not getattr(self, "_scroll_manager", None):
             return False
         for mode_type in ("live", "recent", "upcoming"):
-            leagues = self._get_enabled_leagues_for_mode(mode_type)
-            if mode_type == "live":
-                # Live priority can force a live mode onto the display even
-                # when show_live is false; it still needs the fast frame loop.
-                leagues.extend(
-                    league for league, entry in self._league_registry.items()
-                    if entry.get("enabled", False)
-                    and getattr(self, f"{league}_live_priority", False)
-                    and league not in leagues
-                )
-            for league in leagues:
+            for league in self._get_enabled_leagues_for_mode(mode_type):
                 if self._should_use_scroll_mode(league, mode_type):
                     return True
         return False
@@ -2241,15 +2231,6 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
                 self._scroll_prepared[scroll_key] = False
                 self._scroll_active[scroll_key] = False
                 return False
-
-            if league == 'wnba':
-                for position, game in enumerate(games, start=1):
-                    self.logger.info(
-                        "[Basketball Scroll] WNBA %s game %d/%d id=%s %s@%s start=%s status=%s",
-                        mode_type, position, len(games), game.get('id'),
-                        game.get('away_abbr'), game.get('home_abbr'),
-                        game.get('start_time_utc'), game.get('status_text'),
-                    )
             
             # Add league info to each game
             for game in games:
@@ -2335,13 +2316,17 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         # Create display mode name for tracking
         display_mode = f"{league}_{mode_type}"
 
-        # Set display context for dynamic duration tracking
         self._current_display_league = league
         self._current_display_mode_type = mode_type
+        self._current_active_display_mode = display_mode
         
         # Check if this league uses scroll mode
         if self._should_use_scroll_mode(league, mode_type):
             return self._display_scroll_mode(display_mode, league, mode_type, force_clear)
+        
+        # Set display context for dynamic duration tracking
+        self._current_display_league = league
+        self._current_display_mode_type = mode_type
         
         # Try to display content from this league's manager (switch mode)
         success, _ = self._try_manager_display(
@@ -2827,13 +2812,6 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
                     league = "ncaam"
                 elif display_mode.startswith("ncaaw_"):
                     league = "ncaaw"
-
-        if (league and self._get_display_mode(league, mode_type) == 'scroll'
-                and self._scroll_manager
-                and self._scroll_prepared.get(f"{display_mode}_{mode_type}")):
-            scroll_display = self._scroll_manager.get_scroll_display(mode_type)
-            if scroll_display.has_cached_content() and scroll_display.get_current_leagues() == [league]:
-                return float(scroll_display.get_dynamic_duration())
         
         if league:
             effective_mode_duration = self._get_mode_duration(league, mode_type)
@@ -2842,6 +2820,9 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
                     f"get_cycle_duration: using mode-level duration for {display_mode} = {effective_mode_duration}s"
                 )
                 return effective_mode_duration
+
+            if self._should_use_scroll_mode(league, mode_type) and self._scroll_manager:
+                return self._scroll_manager.get_scroll_display(mode_type).get_dynamic_duration()
         
         # Fall through to dynamic calculation based on game count (priority 2)
         
@@ -3075,9 +3056,14 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         """Report whether the plugin has shown a full cycle of content."""
         if not self._dynamic_feature_enabled():
             return True
+        league = self._current_display_league
+        mode_type = self._current_display_mode_type
+        if (league and mode_type and self._scroll_manager
+                and self._should_use_scroll_mode(league, mode_type)):
+            return self._scroll_manager.is_complete(mode_type)
         # Pass the current active display mode to evaluate completion for the right mode
         self._evaluate_dynamic_cycle_completion(display_mode=self._current_active_display_mode)
-        self.logger.debug(f"is_cycle_complete() called: display_mode={self._current_active_display_mode}, returning {self._dynamic_cycle_complete}")
+        self.logger.info(f"is_cycle_complete() called: display_mode={self._current_active_display_mode}, returning {self._dynamic_cycle_complete}")
         return self._dynamic_cycle_complete
 
     def _dynamic_feature_enabled(self) -> bool:
@@ -3100,6 +3086,11 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         
         league = self._current_display_league
         mode_type = self._current_display_mode_type
+
+        if self._should_use_scroll_mode(league, mode_type) and self._scroll_manager:
+            return self._scroll_manager.get_scroll_display(
+                mode_type
+            ).scroll_helper.dynamic_duration_enabled
         
         # Check per-league/per-mode setting first (most specific)
         league_config = self.config.get(league, {})
