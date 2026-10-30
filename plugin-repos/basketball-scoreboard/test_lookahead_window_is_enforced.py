@@ -122,6 +122,17 @@ def main():
     check("a favourite's game beyond the window is not exempt",
           "far" not in shown, shown)
 
+    print("\na 1-day window keeps only today and tomorrow")
+    probe = _make([
+        _upcoming("today", "BOS", "NY", days_out=0),
+        _upcoming("tomorrow", "CHI", "CLE", days_out=1),
+        _upcoming("day-after", "MIN", "TOR", days_out=2),
+    ], favorites=[], lookahead=1)
+    probe.update()
+    shown = sorted(g["id"] for g in probe.games_list)
+    check("today and tomorrow stay in the upcoming list",
+          shown == ["today", "tomorrow"], shown)
+
     print("\na wider window admits more of the schedule")
     probe = _make(events, favorites=["TOR"], lookahead=30)
     probe.update()

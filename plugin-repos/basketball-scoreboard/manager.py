@@ -1020,6 +1020,10 @@ class BasketballScoreboardPlugin(BasePlugin if BasePlugin else object):
         for _root_key in _ROOT_CONFIG_KEYS:
             if _root_key in self.config:
                 manager_config[_root_key] = self.config[_root_key]
+        if "schedule_lookahead_days" in league_config:
+            manager_config["schedule_lookahead_days"] = league_config[
+                "schedule_lookahead_days"
+            ]
         return manager_config
 
     def _get_available_modes(self) -> list:

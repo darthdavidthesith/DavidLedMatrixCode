@@ -50,6 +50,8 @@ results = []
 LEAGUE_ALLOW = {
     "enabled": "the fixture turns the league on; forwarded verbatim",
     "favorite_teams": "the fixture sets it; forwarded verbatim",
+    "schedule_lookahead_days": "overrides the plugin-wide value at the "
+                               "manager config root; checked separately below",
     "display_modes": "show_* are renamed to <league>_live/_recent/_upcoming "
                      "(checked separately below); *_display_mode is read from "
                      "the plugin config by manager._get_display_mode",
@@ -210,6 +212,21 @@ def main():
               "got %r" % (adapted.get(key),))
     check("root timezone reaches the manager",
           adapted.get("timezone") == "America/Chicago", adapted.get("timezone"))
+
+    print("\n  NBA schedule lookahead override")
+    obj.config = {
+        "schedule_lookahead_days": 7,
+        "nba": {"schedule_lookahead_days": 1},
+    }
+    adapted = adapt("nba")
+    check("NBA override takes precedence over plugin-wide lookahead",
+          adapted.get("schedule_lookahead_days") == 1,
+          adapted.get("schedule_lookahead_days"))
+    obj.config = {"schedule_lookahead_days": 7, "nba": {}}
+    adapted = adapt("nba")
+    check("plugin-wide lookahead remains the fallback",
+          adapted.get("schedule_lookahead_days") == 7,
+          adapted.get("schedule_lookahead_days"))
 
     failed = [c for c, ok in results if not ok]
     print("\n%d checks, %d failed" % (len(results), len(failed)))
